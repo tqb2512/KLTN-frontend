@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import CoursesNavbar from "@/components/courses-navbar";
 
-export default function Courses() {
+export default function MyCourses() {
     const [courses, setCourses] = useState<CourseCardProps[]>([]);
     const pathname = usePathname();
 

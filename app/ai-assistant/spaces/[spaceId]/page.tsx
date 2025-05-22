@@ -1,11 +1,15 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { getAccessToken } from "@/utils/local_user";
+import { Textarea } from "@/components/ui/textarea";
+import { getAccessToken, getCurrentUser } from "@/utils/local_user";
 import { createClient } from "@/utils/supabase/client";
-import { EllipsisVertical, Map, MessageSquareText, MessageSquare, Plus, Search, Send } from "lucide-react";
+import { EllipsisVertical, Map, MessageSquareText, MessageSquare, Plus, Search, Send, SquareArrowOutUpRight, Loader2 } from "lucide-react";
+import Link from "next/link";
 import { use, useEffect, useState } from "react";
 
 type Space = {
@@ -19,6 +23,13 @@ type Space = {
         }
     }[]
     created_at: string;
+    space_notes: {
+        id: string;
+        title: string;
+        type: string;
+        content: string;
+        created_at: string;
+    }[]
 }
 
 type ChatSession = {
@@ -26,6 +37,11 @@ type ChatSession = {
     session_id: string;
     created_at: string;
     messages: JSON;
+}
+
+type DiscoverSource = {
+    title: string;
+    url: string;
 }
 
 export default function SpaceDetails({ params }: { params: Promise<{ spaceId: string }> }) {
@@ -37,22 +53,79 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
     const [chat_session, setChatSession] = useState<ChatSession | null>(null);
     const [chat_message, setChatMessage] = useState<string>("");
 
-    useEffect(() => {
-        const fetchSpace = async () => {
-            const supabase = createClient(await getAccessToken());
-            const { data, error } = await supabase
-                .from('spaces')
-                .select('*, space_sources(*, document_info:documents(*))')
-                .eq('id', spaceId)
-                .single();
+    const [discover_prompt, setDiscoverPrompt] = useState<string>("");
+    const [discover_sources, setDiscoverSources] = useState<DiscoverSource[]>([]);
+    const [discover_state, setDiscoverState] = useState<"prompt" | "loading" | "success" | "importing" | "error">("prompt");
+    const [import_sources, setImportSources] = useState<string[]>([]);
 
-            if (error) {
-                console.error(error);
+    const fetchSpace = async () => {
+        const supabase = createClient(await getAccessToken());
+        const { data, error } = await supabase
+            .from('spaces')
+            .select('*, space_sources(*, document_info:documents(*)), space_notes(*)')
+            .eq('id', spaceId)
+            .single();
+
+        if (error) {
+            console.error(error);
+        } else {
+            setSpace(data);
+            setSources(data.space_sources);
+        }
+    };
+
+    const discoverSources = async () => {
+        setDiscoverState("loading");
+
+        const response = await fetch("/n8n/webhook/sources-discover", {
+            method: "POST",
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                chat_input: discover_prompt,
+                user_id: "1"
+            })
+        })
+
+        const data = await response.json();
+        if (response.ok) {
+            setDiscoverSources(data);
+            setDiscoverState("success");
+        } else {
+            setDiscoverState("error");
+        }
+        setDiscoverPrompt("");
+    }
+
+    const importSources = async () => {
+        setDiscoverState("importing");
+        const user = await getCurrentUser();
+
+        if (user) {
+            const response = await fetch("/n8n/webhook/import-sources-to-space", {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    space_id: spaceId,
+                    urls: importSources,
+                    user_id: user.id
+                })
+            })
+
+            if (response.ok) {
+                setImportSources([]);
+                setDiscoverState("prompt");
+                fetchSpace();
             } else {
-                setSpace(data);
-                setSources(data.space_sources);
+                console.error("Failed to import sources");
             }
-        };
+        }
+    }
+
+    useEffect(() => {
         fetchSpace();
     }, [spaceId]);
 
@@ -66,10 +139,95 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                         <Plus />
                         <p>Add</p>
                     </Button>
-                    <Button variant="outline" className="flex-1 border border-gray-200 bg-white hover:bg-gray-100">
-                        <Search />
-                        <p>Discover</p>
-                    </Button>
+                    <Dialog>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="flex-1 border border-gray-200 bg-white hover:bg-gray-100">
+                                <Search />
+                                <p>Discover</p>
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                            <DialogTitle>Discover Sources</DialogTitle>
+                            <hr className="border-t border-gray-200" />
+                            {
+                                discover_state === "prompt" && (
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex flex-col items-center">
+                                            <div className="rounded-full bg-gray-100 p-2">
+                                                <Search className="w-4 h-4" />
+                                            </div>
+                                            <h1>What are you interested in?</h1>
+                                        </div>
+                                        <Textarea placeholder="Describe something you want to learn..." value={discover_prompt} onChange={(e) => setDiscoverPrompt(e.target.value)} />
+                                        <div className="flex flex-row gap-2 items-center justify-end">
+                                            <Button onClick={discoverSources} variant="outline" className="border cursor-pointer border-gray-200 bg-white hover:bg-gray-100">
+                                                Submit
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )
+                            }
+                            {
+                                discover_state === "loading" && (
+                                    <div className="flex flex-col gap-2 items-center justify-center">
+                                        <p className="text-gray-500">Discovering sources based on your prompt...</p>
+                                        <div className="flex flex-row gap-2 items-center">
+                                            <Loader2 className="w-8 h-8 animate-spin text-gray-500" />
+                                        </div>
+                                    </div>
+                                )
+                            }
+                            {
+                                (discover_state === "success" || discover_state === "importing") && (
+                                    <div className="flex flex-col gap-2">
+                                        <div className="flex flex-row gap-2 items-center justify-between px-2">
+                                            <p className="text-sm text-gray-500">Select All Sources</p>
+                                            <Checkbox
+                                                className="hover:cursor-pointer"
+                                                checked={import_sources.length === discover_sources.length}
+                                                onCheckedChange={(checked) => {
+                                                    setImportSources(checked ? discover_sources.map((source) => source.url) : []);
+                                                }}
+                                                disabled={discover_state === "importing"}
+                                            />
+                                        </div>
+
+                                        {discover_sources.map((source, idx) => (
+                                            <div key={idx} className="flex flex-row gap-2 items-center hover:bg-gray-100 p-2 rounded-md justify-between">
+                                                <div className="flex flex-row gap-2 items-center">
+                                                    <p className="line-clamp-1">{source.title}</p>
+                                                    <Link href={source.url} target="_blank" className="rounded-full bg-gray-100 p-1 cursor-pointer">
+                                                        <SquareArrowOutUpRight className="w-3 h-3" />
+                                                    </Link>
+                                                </div>
+                                                <Checkbox
+                                                    className="hover:cursor-pointer"
+                                                    checked={import_sources.includes(source.url)}
+                                                    onCheckedChange={(checked) => {
+                                                        setImportSources(checked ? [...import_sources, source.url] : import_sources.filter((url) => url !== source.url));
+                                                    }}
+                                                    disabled={discover_state === "importing"}
+                                                />
+                                            </div>
+                                        ))}
+                                        <hr className="border-t border-gray-200" />
+                                        <div className="flex flex-row gap-2 items-center justify-end">
+                                            <Button disabled={discover_state === "importing"} onClick={() => {
+                                                setDiscoverState("prompt");
+                                                setDiscoverSources([]);
+                                                setImportSources([]);
+                                            }} variant="outline" className="border cursor-pointer border-gray-200 bg-white hover:bg-gray-100">
+                                                <p>Cancel</p>
+                                            </Button>
+                                            <Button disabled={discover_state === "importing"} onClick={importSources} variant="outline" className="border cursor-pointer border-gray-200 bg-white hover:bg-gray-100">
+                                                <p>{discover_state === "importing" ? "Importing..." : "Import"}</p>
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )
+                            }
+                        </DialogContent>
+                    </Dialog>
                 </div>
                 <div className="flex flex-col gap-2 p-3">
                     <div className="flex flex-row gap-2 items-center justify-between px-2">
@@ -83,9 +241,11 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                         />
                     </div>
                     {sources.map((source) => (
-                        <div key={source.id} className="flex flex-row gap-2 items-center hover:bg-gray-100 p-2 rounded-md">
-                            <EllipsisVertical className="shrink-0 w-4" />
-                            <p className="line-clamp-1">{source.document_info.title}</p>
+                        <div key={source.id} className="flex flex-row gap-2 items-center hover:bg-gray-100 p-2 rounded-md justify-between">
+                            <div className="flex flex-row gap-2 items-center">
+                                <EllipsisVertical className="shrink-0 w-4" />
+                                <p className="line-clamp-1">{source.document_info.title}</p>
+                            </div>
                             <Checkbox
                                 className="hover:cursor-pointer"
                                 checked={selected_sources.includes(source.id)}
@@ -127,6 +287,15 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                         <MessageSquareText />
                         <p>Study Guide</p>
                     </Button>
+                </div>
+                <hr className="border-t border-gray-200" />
+                <div className="p-3">
+                    <h1 className="text-lg font-medium">Notes</h1>
+                    {space?.space_notes.map((note) => (
+                        <div key={note.id} className="flex flex-row gap-2 items-center hover:bg-gray-100 p-2 rounded-md justify-between">
+                            <p className="line-clamp-1">{note.title}</p>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>

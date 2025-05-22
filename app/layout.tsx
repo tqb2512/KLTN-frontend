@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import AppSidebar from "@/components/app-sidebar";
+import { ReactFlowProvider } from "@xyflow/react";
 
 const geistSans = Geist({
     variable: "--font-geist-sans",
@@ -25,14 +26,16 @@ export default function RootLayout({
 }>) {
     return (
         <html lang="en">
-            <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-                <main className="flex flex-row">
-                    <AppSidebar />
-                    <div className="flex-1">
-                        {children}
-                    </div>
-                </main>
-            </body>
+            <ReactFlowProvider>
+                <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+                    <main className="flex flex-row">
+                        <AppSidebar />
+                        <div className="flex-1">
+                            {children}
+                        </div>
+                    </main>
+                </body>
+            </ReactFlowProvider>
         </html>
     );
 }

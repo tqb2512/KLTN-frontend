@@ -152,3 +152,17 @@
 .rotate-y-180 {
   transform: rotateY(180deg);
 }
+
+/* ReactFlow Mind Map Node Styles */
+.react-flow__node-mindMapNode {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+}
+
+.mind-map-node {
+  border-radius: 0.75rem !important;
+  overflow: visible !important;
+}

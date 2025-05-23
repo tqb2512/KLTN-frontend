@@ -1,5 +1,6 @@
 "use client";
 import FlashCardDialog from "@/components/flash-card";
+import MindMapDialog from "@/components/mind-map";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -291,10 +292,12 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 <hr className="border-t border-gray-200" />
                 <div className="p-3">
                     <h1 className="text-lg font-medium">Notes</h1>
-                    {space?.space_notes.map((note) => {
+                    {space?.space_notes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((note) => {
                         switch (note.type) {
                             case "flash-card":
                                 return <FlashCardDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
+                            case "mind-map":
+                                return <MindMapDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
                             default:
                                 return <div key={note.id}>{note.title}</div>
                         }

@@ -1,4 +1,5 @@
 "use client";
+import FlashCardDialog from "@/components/flash-card";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -27,7 +28,6 @@ type Space = {
         id: string;
         title: string;
         type: string;
-        content: string;
         created_at: string;
     }[]
 }
@@ -62,7 +62,7 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
         const supabase = createClient(await getAccessToken());
         const { data, error } = await supabase
             .from('spaces')
-            .select('*, space_sources(*, document_info:documents(*)), space_notes(*)')
+            .select('*, space_sources(*, document_info:documents(*)), space_notes(id, title, type, created_at)')
             .eq('id', spaceId)
             .single();
 
@@ -291,11 +291,14 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 <hr className="border-t border-gray-200" />
                 <div className="p-3">
                     <h1 className="text-lg font-medium">Notes</h1>
-                    {space?.space_notes.map((note) => (
-                        <div key={note.id} className="flex flex-row gap-2 items-center hover:bg-gray-100 p-2 rounded-md justify-between">
-                            <p className="line-clamp-1">{note.title}</p>
-                        </div>
-                    ))}
+                    {space?.space_notes.map((note) => {
+                        switch (note.type) {
+                            case "flash-card":
+                                return <FlashCardDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
+                            default:
+                                return <div key={note.id}>{note.title}</div>
+                        }
+                    })}
                 </div>
             </div>
         </div>

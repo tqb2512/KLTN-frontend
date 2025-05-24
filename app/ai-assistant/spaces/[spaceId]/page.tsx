@@ -130,7 +130,7 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 },
                 body: JSON.stringify({
                     space_id: spaceId,
-                    urls: importSources,
+                    urls: import_sources,
                     user_id: user.id
                 })
             })
@@ -279,7 +279,11 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                                             className="hover:cursor-pointer"
                                             checked={import_sources.length === discover_sources.length}
                                             onCheckedChange={(checked) => {
-                                                setImportSources(checked ? discover_sources.map((source) => source.url) : []);
+                                                if (checked) {
+                                                    setImportSources(discover_sources.map((source) => source.url));
+                                                } else {
+                                                    setImportSources([]);
+                                                }
                                             }}
                                             disabled={discover_state === "importing"}
                                         />
@@ -297,7 +301,11 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                                                 className="hover:cursor-pointer"
                                                 checked={import_sources.includes(source.url)}
                                                 onCheckedChange={(checked) => {
-                                                    setImportSources(checked ? [...import_sources, source.url] : import_sources.filter((url) => url !== source.url));
+                                                    if (checked) {
+                                                        setImportSources([...import_sources, source.url]);
+                                                    } else {
+                                                        setImportSources(import_sources.filter((url) => url !== source.url));
+                                                    }
                                                 }}
                                                 disabled={discover_state === "importing"}
                                             />

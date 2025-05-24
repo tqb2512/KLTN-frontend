@@ -1,7 +1,5 @@
 "use client";
-import FlashCardDialog from "@/components/flash-card";
-import MindMapDialog from "@/components/mind-map";
-import MarkdownDialog from "@/components/markdown";
+import FlashCardDialog from "@/components/flash-card";import MindMapDialog from "@/components/mind-map";import MarkdownDialog from "@/components/markdown";import AIMessage from "@/components/ai-message";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -337,9 +335,9 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 </div>
                 {sources.map((source) => (
                     <div key={source.id} className="flex flex-row gap-2 items-center hover:bg-gray-100 p-2 rounded-md justify-between">
-                        <div className="flex flex-row gap-2 items-center">
+                        <div className="flex flex-row gap-2 items-center font-medium">
                             <EllipsisVertical className="shrink-0 w-4" />
-                            <p className="line-clamp-1">{source.document_info.title}</p>
+                            <p className="line-clamp-1 text-sm">{source.document_info.title}</p>
                         </div>
                         <Checkbox
                             className="hover:cursor-pointer"
@@ -383,16 +381,7 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                                         <Bot className="w-4 h-4" />
                                     )}
                                 </div>
-                                <div className={`rounded-lg px-4 py-2 ${message.role === 'user'
-                                        ? 'bg-blue-500 text-white'
-                                        : 'bg-white border border-gray-200'
-                                    }`}>
-                                    <p className="text-sm whitespace-pre-wrap">{message.content}</p>
-                                    <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'
-                                        }`}>
-                                        {formatTime(message.timestamp)}
-                                    </p>
-                                </div>
+                                                                 <div className={`rounded-lg px-4 py-2 ${message.role === 'user'                                         ? 'bg-blue-500 text-white'                                         : 'bg-white border border-gray-200'                                     }`}>                                     {message.role === 'user' ? (                                         <p className="text-sm whitespace-pre-wrap">{message.content}</p>                                     ) : (                                         <AIMessage content={message.content} />                                     )}                                     <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'                                         }`}>                                         {formatTime(message.timestamp)}                                     </p>                                 </div>
                             </div>
                         </div>
                     ))}

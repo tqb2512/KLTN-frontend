@@ -1,7 +1,7 @@
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import { Dialog, DialogTitle, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type FlashCardDialogProps = {
@@ -60,7 +60,10 @@ export default function FlashCardDialog({ id, title, createdAt }: FlashCardDialo
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <div className="flex flex-row gap-2 items-center hover:bg-gray-100 p-2 rounded-md justify-between cursor-pointer">
-                    <p className="line-clamp-1">{title}</p>
+                    <div className="flex flex-row gap-2 items-center">
+                        <CreditCard className="h-4 w-4 flex-shrink-0" />
+                        <p className="line-clamp-1 text-sm font-medium">{title}</p>
+                    </div>
                 </div>
             </DialogTrigger>
             <DialogContent>
@@ -99,6 +102,7 @@ export default function FlashCardDialog({ id, title, createdAt }: FlashCardDialo
 
                         <div className="flex justify-between w-full mt-4">
                             <Button
+                                className="border-gray-200"
                                 variant="outline"
                                 size="sm"
                                 onClick={(e) => {
@@ -112,6 +116,7 @@ export default function FlashCardDialog({ id, title, createdAt }: FlashCardDialo
 
 
                             <Button
+                                className="border-gray-200"
                                 variant="outline"
                                 size="sm"
                                 onClick={(e) => {

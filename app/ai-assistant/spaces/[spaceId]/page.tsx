@@ -1,6 +1,7 @@
 "use client";
 import FlashCardDialog from "@/components/flash-card";
 import MindMapDialog from "@/components/mind-map";
+import MarkdownDialog from "@/components/markdown";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -298,6 +299,8 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                                 return <FlashCardDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
                             case "mind-map":
                                 return <MindMapDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
+                            case "markdown":
+                                return <MarkdownDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
                             default:
                                 return <div key={note.id}>{note.title}</div>
                         }

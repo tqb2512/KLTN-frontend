@@ -4,6 +4,7 @@ import MindMapNode from "./node";
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
+import { Map } from "lucide-react";
 
 type MindMapDialogProps = {
     id: string;
@@ -42,7 +43,10 @@ export default function MindMapDialog({ id, title, createdAt }: MindMapDialogPro
         <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <div className="flex flex-row gap-2 items-center hover:bg-gray-100 p-2 rounded-md justify-between cursor-pointer">
-                    <p className="line-clamp-1">{title}</p>
+                <div className="flex flex-row gap-2 items-center">
+                        <Map className="h-4 w-4 flex-shrink-0" />
+                        <p className="line-clamp-1 text-sm font-medium">{title}</p>
+                    </div>
                 </div>
             </DialogTrigger>
             <DialogContent className="min-w-[900px] p-0">

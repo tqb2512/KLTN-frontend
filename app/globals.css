@@ -166,3 +166,326 @@
   border-radius: 0.75rem !important;
   overflow: visible !important;
 }
+
+/* MDX Editor Styles */
+.mdxeditor {
+  @apply rounded-lg border border-border bg-background text-foreground;
+  font-family: var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+}
+
+.mdxeditor.h-full {
+  @apply flex flex-col;
+  height: 100%;
+}
+
+.mdxeditor.h-full .mdxeditor-editor {
+  @apply flex-1 min-h-0;
+}
+
+/* Editor Content Styling */
+.mdxeditor-editor {
+  @apply min-h-[400px] max-h-[60vh] p-6 overflow-y-auto;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--foreground);
+  background: var(--background);
+}
+
+/* Toolbar Styling */
+.mdxeditor-toolbar {
+  @apply border-b border-border bg-muted/30 px-4 py-2;
+  border-radius: 0.5rem 0.5rem 0 0;
+}
+
+.mdxeditor-toolbar button {
+  @apply h-8 w-8 rounded-md border-0 bg-transparent text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground;
+}
+
+.mdxeditor-toolbar button[data-active="true"] {
+  @apply bg-accent text-accent-foreground;
+}
+
+.mdxeditor-toolbar .mdxeditor-toolbar-separator {
+  @apply mx-2 h-6 w-px bg-border;
+}
+
+/* Typography Styles */
+.mdxeditor-editor h1 {
+  @apply text-3xl font-bold tracking-tight text-foreground mt-8 mb-4 first:mt-0;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.mdxeditor-editor h2 {
+  @apply text-2xl font-semibold tracking-tight text-foreground mt-6 mb-3;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.25rem;
+}
+
+.mdxeditor-editor h3 {
+  @apply text-xl font-semibold text-foreground mt-5 mb-2;
+}
+
+.mdxeditor-editor h4 {
+  @apply text-lg font-medium text-foreground mt-4 mb-2;
+}
+
+.mdxeditor-editor h5 {
+  @apply text-base font-medium text-foreground mt-3 mb-2;
+}
+
+.mdxeditor-editor h6 {
+  @apply text-sm font-medium text-muted-foreground mt-3 mb-2;
+}
+
+.mdxeditor-editor p {
+  @apply text-foreground mb-4 leading-relaxed;
+}
+
+.mdxeditor-editor strong {
+  @apply font-semibold text-foreground;
+}
+
+.mdxeditor-editor em {
+  @apply italic text-foreground;
+}
+
+.mdxeditor-editor code {
+  @apply rounded bg-muted px-1.5 py-0.5 text-sm font-mono text-foreground;
+}
+
+.mdxeditor-editor pre {
+  @apply rounded-lg bg-muted p-4 overflow-x-auto my-4;
+  border: 1px solid var(--border);
+}
+
+.mdxeditor-editor pre code {
+  @apply bg-transparent p-0 text-sm;
+}
+
+/* List Styles */
+.mdxeditor-editor ul {
+  @apply list-disc pl-6 mb-4 space-y-1;
+}
+
+.mdxeditor-editor ol {
+  @apply list-decimal pl-6 mb-4 space-y-1;
+}
+
+.mdxeditor-editor li {
+  @apply text-foreground leading-relaxed;
+}
+
+.mdxeditor-editor li > ul,
+.mdxeditor-editor li > ol {
+  @apply mt-2 mb-0;
+}
+
+/* Quote Styles */
+.mdxeditor-editor blockquote {
+  @apply border-l-4 border-primary pl-4 py-2 my-4 italic text-muted-foreground bg-muted/50 rounded-r-lg;
+}
+
+.mdxeditor-editor blockquote p {
+  @apply mb-0;
+}
+
+/* Link Styles */
+.mdxeditor-editor a {
+  @apply text-primary hover:text-primary/80 underline underline-offset-4 transition-colors;
+}
+
+/* Table Styles */
+.mdxeditor-editor table {
+  @apply w-full border-collapse border border-border rounded-lg overflow-hidden my-4;
+}
+
+.mdxeditor-editor th {
+  @apply bg-muted/50 border border-border px-4 py-2 text-left font-semibold text-foreground;
+}
+
+.mdxeditor-editor td {
+  @apply border border-border px-4 py-2 text-foreground;
+}
+
+.mdxeditor-editor tr:nth-child(even) {
+  @apply bg-muted/20;
+}
+
+/* Horizontal Rule */
+.mdxeditor-editor hr {
+  @apply border-0 border-t border-border my-8;
+}
+
+/* Focus and Selection */
+.mdxeditor-editor:focus {
+  @apply outline-none;
+}
+
+.mdxeditor-editor::selection {
+  @apply bg-primary/20;
+}
+
+/* Placeholder Styling */
+.mdxeditor-editor .ProseMirror p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  @apply text-muted-foreground pointer-events-none;
+  float: left;
+  height: 0;
+}
+
+/* Dark Mode Adjustments */
+.dark .mdxeditor-editor {
+  color: var(--foreground);
+  background: var(--background);
+}
+
+.dark .mdxeditor-editor code {
+  @apply bg-muted text-foreground;
+}
+
+.dark .mdxeditor-editor pre {
+  @apply bg-muted;
+  border-color: var(--border);
+}
+
+.dark .mdxeditor-editor blockquote {
+  @apply border-l-primary bg-muted/30 text-muted-foreground;
+}
+
+/* Content Editable Fixes */
+.mdxeditor-editor .ProseMirror {
+  @apply outline-none;
+}
+
+.mdxeditor-editor .ProseMirror-focused {
+  @apply outline-none;
+}
+
+/* Animation and Transitions */
+.mdxeditor-toolbar button {
+  transition: all 0.2s ease-in-out;
+}
+
+.mdxeditor-toolbar button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Improved Link Styling */
+.mdxeditor-editor a {
+  @apply relative;
+}
+
+.mdxeditor-editor a::before {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 2px;
+  bottom: -2px;
+  left: 0;
+  background-color: var(--primary);
+  visibility: hidden;
+  transform: scaleX(0);
+  transition: all 0.3s ease-in-out;
+}
+
+.mdxeditor-editor a:hover::before {
+  visibility: visible;
+  transform: scaleX(1);
+}
+
+/* Code Block Syntax Highlighting Base */
+.mdxeditor-editor pre {
+  position: relative;
+}
+
+.mdxeditor-editor pre::before {
+  content: 'Code';
+  position: absolute;
+  top: 0.5rem;
+  right: 0.75rem;
+  @apply text-xs text-muted-foreground/70 font-mono;
+}
+
+/* Table Enhancements */
+.mdxeditor-editor table {
+  @apply shadow-sm;
+}
+
+.mdxeditor-editor th:first-child,
+.mdxeditor-editor td:first-child {
+  @apply rounded-l-md;
+}
+
+.mdxeditor-editor th:last-child,
+.mdxeditor-editor td:last-child {
+  @apply rounded-r-md;
+}
+
+/* Blockquote Icon */
+.mdxeditor-editor blockquote {
+  position: relative;
+}
+
+.mdxeditor-editor blockquote::before {
+  content: '"';
+  position: absolute;
+  left: -0.5rem;
+  top: -0.25rem;
+  @apply text-2xl text-primary/60 font-serif;
+}
+
+/* Enhanced Focus States */
+.mdxeditor:focus-within {
+  @apply ring-0;
+}
+
+/* Scroll Styling */
+.mdxeditor-editor::-webkit-scrollbar {
+  width: 6px;
+}
+
+.mdxeditor-editor::-webkit-scrollbar-track {
+  @apply bg-muted/30;
+}
+
+.mdxeditor-editor::-webkit-scrollbar-thumb {
+  @apply bg-muted-foreground/30 rounded-full;
+}
+
+.mdxeditor-editor::-webkit-scrollbar-thumb:hover {
+  @apply bg-muted-foreground/50;
+}
+
+/* Global Scrollbar Hiding */
+/* Hide scrollbar for webkit browsers (Chrome, Safari, Edge) */
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for webkit browsers while maintaining functionality */
+*::-webkit-scrollbar {
+  width: 0px;
+  background: transparent;
+}
+
+/* Hide scrollbar for Firefox */
+* {
+  scrollbar-width: none;
+}
+
+/* Alternative method for hiding scrollbars */
+html {
+  overflow: -moz-scrollbars-none;
+  -ms-overflow-style: none;
+}
+
+body {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+body::-webkit-scrollbar {
+  display: none;
+}

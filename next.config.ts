@@ -5,7 +5,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/n8n/:path*",
-        destination: "http://kltn-n8n-c9dee5-140-245-45-78.traefik.me/:path*",
+        destination: "https://n8n.tqbaoo.host/:path*",
         has: [
           {
             type: 'header',

@@ -1,5 +1,9 @@
 "use client";
-import FlashCardDialog from "@/components/flash-card";import MindMapDialog from "@/components/mind-map";import MarkdownDialog from "@/components/markdown";import AIMessage from "@/components/ai-message";
+import FlashCardDialog from "@/components/flash-card";
+import MindMapDialog from "@/components/mind-map";
+import MarkdownDialog from "@/components/markdown";
+import AIMessage from "@/components/ai-message";
+import QuizzDialog from "@/components/quizz";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -362,7 +366,7 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 ))}
             </div>
         </div>
-        <div className="w-[40%] rounded-xl bg-gray-50 border-none shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),0px_1px_0px_0px_rgba(25,28,33,0.02),0px_0px_0px_1px_rgba(25,28,33,0.08)] flex flex-col">
+        <div className="w-[45%] rounded-xl bg-gray-50 border-none shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),0px_1px_0px_0px_rgba(25,28,33,0.02),0px_0px_0px_1px_rgba(25,28,33,0.08)] flex flex-col">
             <h1 className="text-lg font-medium p-3">Chat</h1>
             <hr className="border-t border-gray-200" />
 
@@ -434,7 +438,7 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 </Button>
             </div>
         </div>
-        <div className="w-[35%] rounded-xl bg-gray-50 border-none shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),0px_1px_0px_0px_rgba(25,28,33,0.02),0px_0px_0px_1px_rgba(25,28,33,0.08)]">
+        <div className="w-[30%] rounded-xl bg-gray-50 border-none shadow-[0px_2px_3px_-1px_rgba(0,0,0,0.1),0px_1px_0px_0px_rgba(25,28,33,0.02),0px_0px_0px_1px_rgba(25,28,33,0.08)]">
             <h1 className="text-lg font-medium p-3">Studio</h1>
             <hr className="border-t border-gray-200" />
             <div className="grid grid-cols-2 gap-2 p-3">
@@ -458,6 +462,8 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                             return <MindMapDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
                         case "markdown":
                             return <MarkdownDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
+                        case "quizz":
+                            return <QuizzDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
                         default:
                             return <div key={note.id}>{note.title}</div>
                     }

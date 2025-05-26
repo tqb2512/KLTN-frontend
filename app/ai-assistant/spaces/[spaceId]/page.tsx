@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { getAccessToken, getCurrentUser } from "@/utils/local_user";
 import { createClient } from "@/utils/supabase/client";
-import { EllipsisVertical, Map, MessageSquareText, MessageSquare, Plus, Search, Send, SquareArrowOutUpRight, Loader2, Bot, User } from "lucide-react";
+import { EllipsisVertical, Map, MessageSquareText, MessageSquare, Plus, Search, Send, SquareArrowOutUpRight, Loader2, Bot, User, MessageCircleQuestion, CreditCard } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
 import Link from "next/link";
 import { use, useEffect, useState, useRef } from "react";
@@ -73,6 +73,11 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
     const [discover_sources, setDiscoverSources] = useState<DiscoverSource[]>([]);
     const [discover_state, setDiscoverState] = useState<"prompt" | "loading" | "success" | "importing" | "error">("prompt");
     const [import_sources, setImportSources] = useState<string[]>([]);
+
+    const [isGeneratingFlashCard, setIsGeneratingFlashCard] = useState<boolean>(false);
+    const [isGeneratingQuizz, setIsGeneratingQuizz] = useState<boolean>(false);
+    const [isGeneratingStudyGuide, setIsGeneratingStudyGuide] = useState<boolean>(false);
+    const [isGeneratingMindMap, setIsGeneratingMindMap] = useState<boolean>(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -222,6 +227,142 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
     const formatTime = (timestamp: string) => {
         return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
+
+    const generateFlashCard = async () => {
+        const user = await getCurrentUser();
+        if (!user) return;
+
+        setIsGeneratingFlashCard(true);
+
+        try {
+            const response = await fetch("/n8n/webhook/generate-flash-card", {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    space_id: spaceId,
+                    sources: selected_sources,
+                    chat_input: "Generate flash card from the following sources",
+                    user_id: user.id
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log(data);
+                fetchSpace(); // Refresh to show new note
+            } else {
+                console.error("Failed to generate flash card");
+            }
+        } catch (error) {
+            console.error("Error generating flash card:", error);
+        } finally {
+            setIsGeneratingFlashCard(false);
+        }
+    }
+
+    const generateQuizz = async () => {
+        const user = await getCurrentUser();
+        if (!user) return;
+
+        setIsGeneratingQuizz(true);
+
+        try {
+            const response = await fetch("/n8n/webhook/generate-quizz", {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    space_id: spaceId,
+                    sources: selected_sources,
+                    chat_input: "Generate quiz from the following sources",
+                    user_id: user.id
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log(data);
+                fetchSpace(); // Refresh to show new note
+            } else {
+                console.error("Failed to generate quiz");
+            }
+        } catch (error) {
+            console.error("Error generating quiz:", error);
+        } finally {
+            setIsGeneratingQuizz(false);
+        }
+    }
+
+    const generateStudyGuide = async () => {
+        const user = await getCurrentUser();
+        if (!user) return;
+
+        setIsGeneratingStudyGuide(true);
+
+        try {
+            const response = await fetch("/n8n/webhook/generate-study-guide", {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    space_id: spaceId,
+                    sources: selected_sources,
+                    chat_input: "Generate study guide from the following sources",
+                    user_id: user.id
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log(data);
+                fetchSpace(); // Refresh to show new note
+            } else {
+                console.error("Failed to generate study guide");
+            }
+        } catch (error) {
+            console.error("Error generating study guide:", error);
+        } finally {
+            setIsGeneratingStudyGuide(false);
+        }
+    }
+
+    const generateMindMap = async () => {
+        const user = await getCurrentUser();
+        if (!user) return;
+
+        setIsGeneratingMindMap(true);
+
+        try {
+            const response = await fetch("/n8n/webhook/generate-mind-map", {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    space_id: spaceId,
+                    sources: selected_sources,
+                    chat_input: "Generate mind map from the following sources",
+                    user_id: user.id
+                })
+            })
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log(data);
+                fetchSpace(); // Refresh to show new note
+            } else {
+                console.error("Failed to generate mind map");
+            }
+        } catch (error) {
+            console.error("Error generating mind map:", error);
+        } finally {
+            setIsGeneratingMindMap(false);
+        }
+    }
 
     useEffect(() => {
         fetchSpace();
@@ -419,6 +560,13 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
             </div>
 
             <hr className="border-t border-gray-200" />
+            {selected_sources.length > 0 && (
+                <div className="px-3 py-2 bg-blue-50 border-b border-gray-200">
+                    <p className="text-sm text-blue-700">
+                        {selected_sources.length} source{selected_sources.length !== 1 ? 's' : ''} selected
+                    </p>
+                </div>
+            )}
             <div className="flex flex-row gap-2 p-3 items-center">
                 <Input
                     placeholder="Ask anything about your sources..."
@@ -442,13 +590,41 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
             <h1 className="text-lg font-medium p-3">Studio</h1>
             <hr className="border-t border-gray-200" />
             <div className="grid grid-cols-2 gap-2 p-3">
-                <Button variant="outline" className="border border-gray-200 bg-white hover:bg-gray-100">
-                    <Map />
-                    <p>Generate Mind Map</p>
+                <Button 
+                    variant="outline" 
+                    className="border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-50"
+                    onClick={generateMindMap}
+                    disabled={isGeneratingMindMap || selected_sources.length === 0}
+                >
+                    {isGeneratingMindMap ? <Loader2 className="w-4 h-4 animate-spin" /> : <Map />}
+                    <p>{isGeneratingMindMap ? "Generating..." : "Mind Map"}</p>
                 </Button>
-                <Button variant="outline" className="border border-gray-200 bg-white hover:bg-gray-100">
-                    <MessageSquareText />
-                    <p>Study Guide</p>
+                <Button 
+                    variant="outline" 
+                    className="border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-50"
+                    onClick={generateStudyGuide}
+                    disabled={isGeneratingStudyGuide || selected_sources.length === 0}
+                >
+                    {isGeneratingStudyGuide ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquareText />}
+                    <p>{isGeneratingStudyGuide ? "Generating..." : "Study Guide"}</p>
+                </Button>
+                <Button 
+                    variant="outline" 
+                    className="border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-50"
+                    onClick={generateQuizz}
+                    disabled={isGeneratingQuizz || selected_sources.length === 0}
+                >
+                    {isGeneratingQuizz ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircleQuestion />}
+                    <p>{isGeneratingQuizz ? "Generating..." : "Quizz"}</p>
+                </Button>
+                <Button 
+                    variant="outline" 
+                    className="border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-50"
+                    onClick={generateFlashCard}
+                    disabled={isGeneratingFlashCard || selected_sources.length === 0}
+                >
+                    {isGeneratingFlashCard ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard />}
+                    <p>{isGeneratingFlashCard ? "Generating..." : "Flash Card"}</p>
                 </Button>
             </div>
             <hr className="border-t border-gray-200" />

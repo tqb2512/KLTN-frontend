@@ -24,6 +24,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    proxyTimeout: 1000 * 120,
+  }
 };
 
 export default nextConfig;

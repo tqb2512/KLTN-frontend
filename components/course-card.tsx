@@ -23,7 +23,7 @@ export interface CourseCardProps {
 
 export default function CourseCard({ id, title, description, thumbnail_url, price, total_enrolled, total_lessons, rating, topics, created_at, creator }: CourseCardProps) {
     return (
-        <div className="border-zinc-200 border rounded-lg overflow-hidden cursor-pointer">
+        <Link href={`/courses/${id}`} className="border-zinc-200 border rounded-lg overflow-hidden cursor-pointer">
             <div className="relative w-full h-48 overflow-hidden">
                 <Image src={thumbnail_url} alt={title} fill className="object-cover" />
             </div>
@@ -48,7 +48,7 @@ export default function CourseCard({ id, title, description, thumbnail_url, pric
                 <div />
                 <p className="text-lg font-bold">{price} <span className="text-sm text-zinc-500">Credits</span></p>
             </div>
-        </div>
+        </Link>
     )
 }
 

@@ -303,7 +303,7 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
         setIsGeneratingStudyGuide(true);
 
         try {
-            const response = await fetch("/n8n/webhook/generate-study-guide", {
+            const response = await fetch("/n8n/webhook/generate-learning-guide", {
                 method: "POST",
                 headers: {
                     'Content-Type': 'application/json'
@@ -525,8 +525,8 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                         <div key={message.id} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                             <div className={`flex gap-3 max-w-[80%] ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${message.role === 'user'
-                                        ? 'bg-blue-500 text-white'
-                                        : 'bg-gray-200 text-gray-600'
+                                    ? 'bg-blue-500 text-white'
+                                    : 'bg-gray-200 text-gray-600'
                                     }`}>
                                     {message.role === 'user' ? (
                                         <User className="w-4 h-4" />
@@ -534,7 +534,7 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                                         <Bot className="w-4 h-4" />
                                     )}
                                 </div>
-                                                                 <div className={`rounded-lg px-4 py-2 ${message.role === 'user'                                         ? 'bg-blue-500 text-white'                                         : 'bg-white border border-gray-200'                                     }`}>                                     {message.role === 'user' ? (                                         <p className="text-sm whitespace-pre-wrap">{message.content}</p>                                     ) : (                                         <AIMessage content={message.content} />                                     )}                                     <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'                                         }`}>                                         {formatTime(message.timestamp)}                                     </p>                                 </div>
+                                <div className={`rounded-lg px-4 py-2 ${message.role === 'user' ? 'bg-blue-500 text-white' : 'bg-white border border-gray-200'}`}>                                     {message.role === 'user' ? (<p className="text-sm whitespace-pre-wrap">{message.content}</p>) : (<AIMessage content={message.content} />)}                                     <p className={`text-xs mt-1 ${message.role === 'user' ? 'text-blue-100' : 'text-gray-400'}`}>                                         {formatTime(message.timestamp)}                                     </p>                                 </div>
                             </div>
                         </div>
                     ))}
@@ -590,8 +590,8 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
             <h1 className="text-lg font-medium p-3">Studio</h1>
             <hr className="border-t border-gray-200" />
             <div className="grid grid-cols-2 gap-2 p-3">
-                <Button 
-                    variant="outline" 
+                <Button
+                    variant="outline"
                     className="border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-50"
                     onClick={generateMindMap}
                     disabled={isGeneratingMindMap || selected_sources.length === 0}
@@ -599,8 +599,8 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                     {isGeneratingMindMap ? <Loader2 className="w-4 h-4 animate-spin" /> : <Map />}
                     <p>{isGeneratingMindMap ? "Generating..." : "Mind Map"}</p>
                 </Button>
-                <Button 
-                    variant="outline" 
+                <Button
+                    variant="outline"
                     className="border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-50"
                     onClick={generateStudyGuide}
                     disabled={isGeneratingStudyGuide || selected_sources.length === 0}
@@ -608,8 +608,8 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                     {isGeneratingStudyGuide ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquareText />}
                     <p>{isGeneratingStudyGuide ? "Generating..." : "Study Guide"}</p>
                 </Button>
-                <Button 
-                    variant="outline" 
+                <Button
+                    variant="outline"
                     className="border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-50"
                     onClick={generateQuizz}
                     disabled={isGeneratingQuizz || selected_sources.length === 0}
@@ -617,8 +617,8 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                     {isGeneratingQuizz ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircleQuestion />}
                     <p>{isGeneratingQuizz ? "Generating..." : "Quizz"}</p>
                 </Button>
-                <Button 
-                    variant="outline" 
+                <Button
+                    variant="outline"
                     className="border border-gray-200 bg-white hover:bg-gray-100 disabled:opacity-50"
                     onClick={generateFlashCard}
                     disabled={isGeneratingFlashCard || selected_sources.length === 0}

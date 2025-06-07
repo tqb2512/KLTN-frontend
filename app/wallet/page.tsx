@@ -565,7 +565,7 @@ export default function WalletPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">
-                            {recentTransactions[0] ? `+${recentTransactions[0].amount} Credits` : "No transactions"}
+                            {recentTransactions[0] ? `${recentTransactions[0].detail?.type === "recharge" ? "+" : "-"}${recentTransactions[0].amount} Credits` : "No transactions"}
                         </div>
                         <p className="text-xs text-muted-foreground">
                             {recentTransactions[0] ? formatDate(recentTransactions[0].created_at) : ""}

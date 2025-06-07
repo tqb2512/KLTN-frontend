@@ -13,10 +13,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { getAccessToken, getCurrentUser } from "@/utils/local_user";
 import { createClient } from "@/utils/supabase/client";
+import { PRICING, validateUserBalance, getFeatureDescription } from "@/utils/pricing";
 import { EllipsisVertical, Map, MessageSquareText, MessageSquare, Plus, Search, Send, SquareArrowOutUpRight, Loader2, Bot, User, MessageCircleQuestion, CreditCard } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
 import Link from "next/link";
 import { use, useEffect, useState, useRef } from "react";
+import { toast } from "sonner";
 
 type Space = {
     id: string;
@@ -160,6 +162,73 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
         const user = await getCurrentUser();
         if (!user) return;
 
+        // Check user balance before sending message
+        const AI_USAGE_COST = PRICING.AI_CHAT_MESSAGE;
+        
+        try {
+            const supabaseWithToken = createClient(await getAccessToken());
+            
+            // Get user profile with balance
+            const { data: userProfile, error: userError } = await supabaseWithToken
+                .from('users')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (userError) {
+                console.error('Error fetching user profile:', userError);
+                toast.error('Failed to check user balance. Please try again.');
+                return;
+            }
+
+            // Check if user has enough balance
+            const balanceValidation = validateUserBalance(userProfile?.balance || 0, AI_USAGE_COST);
+            if (!balanceValidation.isValid) {
+                toast.error(balanceValidation.message!);
+                // Optionally redirect to wallet
+                // router.push('/wallet');
+                return;
+            }
+
+            // Deduct credits from user balance
+            const newBalance = userProfile.balance - AI_USAGE_COST;
+            const { error: balanceError } = await supabaseWithToken
+                .from('users')
+                .update({ balance: newBalance })
+                .eq('id', user.id);
+
+            if (balanceError) {
+                console.error('Error updating user balance:', balanceError);
+                toast.error('Failed to process payment. Please try again.');
+                return;
+            }
+
+            // Record the transaction
+            const { error: transactionError } = await supabaseWithToken
+                .from('transactions')
+                .insert({
+                    user_id: user.id,
+                    amount: AI_USAGE_COST,
+                    status: 'completed',
+                    detail: {
+                        type: 'ai_usage',
+                        description: getFeatureDescription('chat', `space: ${spaceId}`),
+                        space_id: spaceId,
+                        message_preview: chat_message.substring(0, 50) + (chat_message.length > 50 ? '...' : '')
+                    }
+                });
+
+            if (transactionError) {
+                console.error('Error recording transaction:', transactionError);
+                // Note: We don't return here as the payment was already processed
+            }
+
+        } catch (error) {
+            console.error('Error processing AI usage payment:', error);
+            toast.error('Failed to process payment. Please try again.');
+            return;
+        }
+
         const userMessage: ChatMessage = {
             id: uuidv4(),
             content: chat_message,
@@ -194,6 +263,7 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                     timestamp: new Date().toISOString()
                 };
                 setMessages(prev => [...prev, assistantMessage]);
+                //toast.success(`AI response generated! ${AI_USAGE_COST} credit deducted.`);
             } else {
                 const errorMessage: ChatMessage = {
                     id: uuidv4(),
@@ -232,6 +302,71 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
         const user = await getCurrentUser();
         if (!user) return;
 
+        // Check user balance before generating flash card
+        const FLASHCARD_COST = PRICING.AI_FLASHCARD_GENERATION;
+        
+        try {
+            const supabaseWithToken = createClient(await getAccessToken());
+            
+            // Get user profile with balance
+            const { data: userProfile, error: userError } = await supabaseWithToken
+                .from('users')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (userError) {
+                console.error('Error fetching user profile:', userError);
+                toast.error('Failed to check user balance. Please try again.');
+                return;
+            }
+
+            // Check if user has enough balance
+            const balanceValidation = validateUserBalance(userProfile?.balance || 0, FLASHCARD_COST);
+            if (!balanceValidation.isValid) {
+                toast.error(balanceValidation.message!);
+                return;
+            }
+
+            // Deduct credits from user balance
+            const newBalance = userProfile.balance - FLASHCARD_COST;
+            const { error: balanceError } = await supabaseWithToken
+                .from('users')
+                .update({ balance: newBalance })
+                .eq('id', user.id);
+
+            if (balanceError) {
+                console.error('Error updating user balance:', balanceError);
+                toast.error('Failed to process payment. Please try again.');
+                return;
+            }
+
+            // Record the transaction
+            const { error: transactionError } = await supabaseWithToken
+                .from('transactions')
+                .insert({
+                    user_id: user.id,
+                    amount: FLASHCARD_COST,
+                    status: 'completed',
+                    detail: {
+                        type: 'ai_usage',
+                        description: getFeatureDescription('flashcard', `space: ${spaceId}`),
+                        space_id: spaceId,
+                        feature: 'flashcard'
+                    }
+                });
+
+            if (transactionError) {
+                console.error('Error recording transaction:', transactionError);
+                // Note: We don't return here as the payment was already processed
+            }
+
+        } catch (error) {
+            console.error('Error processing flash card payment:', error);
+            toast.error('Failed to process payment. Please try again.');
+            return;
+        }
+
         setIsGeneratingFlashCard(true);
 
         try {
@@ -252,11 +387,14 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 const data = await response.json();
                 console.log(data);
                 fetchSpace(); // Refresh to show new note
+                toast.success(`Flash card generated! ${FLASHCARD_COST} credits deducted.`);
             } else {
                 console.error("Failed to generate flash card");
+                toast.error("Failed to generate flash card. Please try again.");
             }
         } catch (error) {
             console.error("Error generating flash card:", error);
+            toast.error("Error generating flash card. Please try again.");
         } finally {
             setIsGeneratingFlashCard(false);
         }
@@ -265,6 +403,71 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
     const generateQuizz = async () => {
         const user = await getCurrentUser();
         if (!user) return;
+
+        // Check user balance before generating quiz
+        const QUIZ_COST = PRICING.AI_QUIZ_GENERATION;
+        
+        try {
+            const supabaseWithToken = createClient(await getAccessToken());
+            
+            // Get user profile with balance
+            const { data: userProfile, error: userError } = await supabaseWithToken
+                .from('users')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (userError) {
+                console.error('Error fetching user profile:', userError);
+                toast.error('Failed to check user balance. Please try again.');
+                return;
+            }
+
+            // Check if user has enough balance
+            const balanceValidation = validateUserBalance(userProfile?.balance || 0, QUIZ_COST);
+            if (!balanceValidation.isValid) {
+                toast.error(balanceValidation.message!);
+                return;
+            }
+
+            // Deduct credits from user balance
+            const newBalance = userProfile.balance - QUIZ_COST;
+            const { error: balanceError } = await supabaseWithToken
+                .from('users')
+                .update({ balance: newBalance })
+                .eq('id', user.id);
+
+            if (balanceError) {
+                console.error('Error updating user balance:', balanceError);
+                toast.error('Failed to process payment. Please try again.');
+                return;
+            }
+
+            // Record the transaction
+            const { error: transactionError } = await supabaseWithToken
+                .from('transactions')
+                .insert({
+                    user_id: user.id,
+                    amount: QUIZ_COST,
+                    status: 'completed',
+                    detail: {
+                        type: 'ai_usage',
+                        description: getFeatureDescription('quiz', `space: ${spaceId}`),
+                        space_id: spaceId,
+                        feature: 'quiz'
+                    }
+                });
+
+            if (transactionError) {
+                console.error('Error recording transaction:', transactionError);
+                // Note: We don't return here as the payment was already processed
+            }
+
+        } catch (error) {
+            console.error('Error processing quiz payment:', error);
+            toast.error('Failed to process payment. Please try again.');
+            return;
+        }
 
         setIsGeneratingQuizz(true);
 
@@ -286,11 +489,14 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 const data = await response.json();
                 console.log(data);
                 fetchSpace(); // Refresh to show new note
+                toast.success(`Quiz generated! ${QUIZ_COST} credits deducted.`);
             } else {
                 console.error("Failed to generate quiz");
+                toast.error("Failed to generate quiz. Please try again.");
             }
         } catch (error) {
             console.error("Error generating quiz:", error);
+            toast.error("Error generating quiz. Please try again.");
         } finally {
             setIsGeneratingQuizz(false);
         }
@@ -299,6 +505,71 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
     const generateStudyGuide = async () => {
         const user = await getCurrentUser();
         if (!user) return;
+
+        // Check user balance before generating study guide
+        const STUDY_GUIDE_COST = PRICING.AI_STUDY_GUIDE_GENERATION;
+        
+        try {
+            const supabaseWithToken = createClient(await getAccessToken());
+            
+            // Get user profile with balance
+            const { data: userProfile, error: userError } = await supabaseWithToken
+                .from('users')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (userError) {
+                console.error('Error fetching user profile:', userError);
+                toast.error('Failed to check user balance. Please try again.');
+                return;
+            }
+
+            // Check if user has enough balance
+            const balanceValidation = validateUserBalance(userProfile?.balance || 0, STUDY_GUIDE_COST);
+            if (!balanceValidation.isValid) {
+                toast.error(balanceValidation.message!);
+                return;
+            }
+
+            // Deduct credits from user balance
+            const newBalance = userProfile.balance - STUDY_GUIDE_COST;
+            const { error: balanceError } = await supabaseWithToken
+                .from('users')
+                .update({ balance: newBalance })
+                .eq('id', user.id);
+
+            if (balanceError) {
+                console.error('Error updating user balance:', balanceError);
+                toast.error('Failed to process payment. Please try again.');
+                return;
+            }
+
+            // Record the transaction
+            const { error: transactionError } = await supabaseWithToken
+                .from('transactions')
+                .insert({
+                    user_id: user.id,
+                    amount: STUDY_GUIDE_COST,
+                    status: 'completed',
+                    detail: {
+                        type: 'ai_usage',
+                        description: getFeatureDescription('study_guide', `space: ${spaceId}`),
+                        space_id: spaceId,
+                        feature: 'study_guide'
+                    }
+                });
+
+            if (transactionError) {
+                console.error('Error recording transaction:', transactionError);
+                // Note: We don't return here as the payment was already processed
+            }
+
+        } catch (error) {
+            console.error('Error processing study guide payment:', error);
+            toast.error('Failed to process payment. Please try again.');
+            return;
+        }
 
         setIsGeneratingStudyGuide(true);
 
@@ -320,11 +591,14 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 const data = await response.json();
                 console.log(data);
                 fetchSpace(); // Refresh to show new note
+                toast.success(`Study guide generated! ${STUDY_GUIDE_COST} credits deducted.`);
             } else {
                 console.error("Failed to generate study guide");
+                toast.error("Failed to generate study guide. Please try again.");
             }
         } catch (error) {
             console.error("Error generating study guide:", error);
+            toast.error("Error generating study guide. Please try again.");
         } finally {
             setIsGeneratingStudyGuide(false);
         }
@@ -333,6 +607,71 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
     const generateMindMap = async () => {
         const user = await getCurrentUser();
         if (!user) return;
+
+        // Check user balance before generating mind map
+        const MIND_MAP_COST = PRICING.AI_MIND_MAP_GENERATION;
+        
+        try {
+            const supabaseWithToken = createClient(await getAccessToken());
+            
+            // Get user profile with balance
+            const { data: userProfile, error: userError } = await supabaseWithToken
+                .from('users')
+                .select('*')
+                .eq('id', user.id)
+                .single();
+
+            if (userError) {
+                console.error('Error fetching user profile:', userError);
+                toast.error('Failed to check user balance. Please try again.');
+                return;
+            }
+
+            // Check if user has enough balance
+            const balanceValidation = validateUserBalance(userProfile?.balance || 0, MIND_MAP_COST);
+            if (!balanceValidation.isValid) {
+                toast.error(balanceValidation.message!);
+                return;
+            }
+
+            // Deduct credits from user balance
+            const newBalance = userProfile.balance - MIND_MAP_COST;
+            const { error: balanceError } = await supabaseWithToken
+                .from('users')
+                .update({ balance: newBalance })
+                .eq('id', user.id);
+
+            if (balanceError) {
+                console.error('Error updating user balance:', balanceError);
+                toast.error('Failed to process payment. Please try again.');
+                return;
+            }
+
+            // Record the transaction
+            const { error: transactionError } = await supabaseWithToken
+                .from('transactions')
+                .insert({
+                    user_id: user.id,
+                    amount: MIND_MAP_COST,
+                    status: 'completed',
+                    detail: {
+                        type: 'ai_usage',
+                        description: getFeatureDescription('mind_map', `space: ${spaceId}`),
+                        space_id: spaceId,
+                        feature: 'mind_map'
+                    }
+                });
+
+            if (transactionError) {
+                console.error('Error recording transaction:', transactionError);
+                // Note: We don't return here as the payment was already processed
+            }
+
+        } catch (error) {
+            console.error('Error processing mind map payment:', error);
+            toast.error('Failed to process payment. Please try again.');
+            return;
+        }
 
         setIsGeneratingMindMap(true);
 
@@ -354,11 +693,14 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 const data = await response.json();
                 console.log(data);
                 fetchSpace(); // Refresh to show new note
+                toast.success(`Mind map generated! ${MIND_MAP_COST} credits deducted.`);
             } else {
                 console.error("Failed to generate mind map");
+                toast.error("Failed to generate mind map. Please try again.");
             }
         } catch (error) {
             console.error("Error generating mind map:", error);
+            toast.error("Error generating mind map. Please try again.");
         } finally {
             setIsGeneratingMindMap(false);
         }

@@ -25,6 +25,9 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
+    serverActions: {
+      bodySizeLimit: '100mb',
+    },
     proxyTimeout: 1000 * 120,
   }
 };

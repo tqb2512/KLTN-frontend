@@ -55,10 +55,31 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         });
 
         if (!response.ok) {
-            const error = await response.text();
-            console.error('Perspective API Error:', error);
+            const errorText = await response.text();
+            let errorObj;
+            
+            try {
+                errorObj = JSON.parse(errorText);
+            } catch {
+                errorObj = { message: errorText };
+            }
+            
+            console.error('Perspective API Error:', errorObj);
+            
+            // Check if it's a language-specific error
+            const isLanguageError = errorText.includes('does not support request languages') || 
+                                  errorText.includes('LANGUAGE_NOT_SUPPORTED_BY_ATTRIBUTE');
+            
+            if (isLanguageError) {
+                console.warn('Language support issue detected for attributes:', attributes);
+            }
+            
             return NextResponse.json(
-                { error: 'Failed to analyze content', details: error },
+                { 
+                    error: 'Failed to analyze content', 
+                    details: errorObj,
+                    isLanguageError: isLanguageError 
+                },
                 { status: response.status }
             );
         }

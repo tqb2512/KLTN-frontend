@@ -365,12 +365,12 @@ export default function PostCard({ id, user, content, created_at, likes, comment
                         </div>
                     )}
 
-                    <div className="flex flex-row gap-8 pt-2">
-                        <div className="flex flex-row gap-1 items-center">
+                    <div className="flex flex-row gap-8 pt-2 w-32">
+                        <div className="flex flex-row gap-1 items-center w-1/2">
                             <Heart className={`w-5 h-5 cursor-pointer ${liked ? 'text-red-300' : 'text-zinc-500'}`} onClick={handleLike} />
                             <p className="text-zinc-500 text-sm">{likesCount > 0 && likesCount}</p>
                         </div>
-                        <div className="flex flex-row gap-1 items-center">
+                        <div className="flex flex-row gap-1 items-center w-1/2">
                             <CommentDialog post_id={id} />
                             <p className="text-zinc-500 text-sm">{comments > 0 && comments}</p>
                         </div>

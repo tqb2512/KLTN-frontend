@@ -3,8 +3,11 @@ import { getAccessToken } from "@/utils/local_user";
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { EllipsisVertical, Plus } from "lucide-react";
+import { EllipsisVertical, Plus, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export interface Space {
     id: string;
@@ -16,6 +19,9 @@ export interface Space {
 export default function AIAssistant() {
 
     const [spaces, setSpaces] = useState<Space[]>([]);
+    const [showMenu, setShowMenu] = useState<string | null>(null);
+    const [renameSpace, setRenameSpace] = useState<{ id: string; title: string } | null>(null);
+    const [newSpaceName, setNewSpaceName] = useState("");
 
     useEffect(() => {
         const fetchSpaces = async () => {
@@ -30,27 +36,202 @@ export default function AIAssistant() {
         fetchSpaces();
     }, []);
 
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (showMenu) {
+                setShowMenu(null);
+            }
+        };
+
+        if (showMenu) {
+            document.addEventListener('click', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [showMenu]);
+
+    const handleDelete = async (spaceId: string, spaceName: string) => {
+        if (!confirm(`Are you sure you want to delete "${spaceName}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const supabase = createClient(await getAccessToken());
+            const { error } = await supabase
+                .from("spaces")
+                .delete()
+                .eq("id", spaceId);
+
+            if (error) {
+                console.error(error);
+                alert("Error deleting space");
+            } else {
+                setSpaces(spaces.filter(space => space.id !== spaceId));
+                setShowMenu(null);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Error deleting space");
+        }
+    };
+
+    const handleRename = async () => {
+        if (!newSpaceName.trim()) {
+            alert("Space name cannot be empty");
+            return;
+        }
+
+        if (!renameSpace) return;
+
+        try {
+            const supabase = createClient(await getAccessToken());
+            const { error } = await supabase
+                .from("spaces")
+                .update({ title: newSpaceName.trim() })
+                .eq("id", renameSpace.id);
+
+            if (error) {
+                console.error(error);
+                alert("Error renaming space");
+            } else {
+                setSpaces(spaces.map(space => 
+                    space.id === renameSpace.id ? { ...space, title: newSpaceName.trim() } : space
+                ));
+                setRenameSpace(null);
+                setNewSpaceName("");
+                setShowMenu(null);
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Error renaming space");
+        }
+    };
+
+    const openRenameDialog = (space: Space) => {
+        setRenameSpace({ id: space.id, title: space.title });
+        setNewSpaceName(space.title);
+        setShowMenu(null);
+    };
+
+    const createSpace = async () => {
+        const supabase = createClient(await getAccessToken());
+        const { data, error } = await supabase.from("spaces").insert({ title: "New Space" }).select().single();
+        if (error) {
+            console.error(error);
+        } else {
+            setSpaces([...spaces, data]);
+        }
+    }
+
     return (
         <div className="mx-auto max-w-screen-xl p-10">
             <h1 className="text-6xl font-bold">Welcome to Learning Spaces</h1>
             <div className="pt-6">
-                <Button><Plus />Create Space</Button>
+                <Button onClick={createSpace} className="flex items-center gap-2"><Plus />Create Space</Button>
             </div>
             <div className="pt-6">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {spaces.map((space) => (
-                        <Link href={`/ai-assistant/spaces/${space.id}`} key={space.id} className="flex flex-col justify-between rounded-lg bg-zinc-200 h-48 hover:cursor-pointer hover:bg-zinc-300">
-                            <div className="p-4">
-                                <h3 className="text-2xl font-bold">{space.title}</h3>
-                                <p className="text-lg text-gray-500">{space.source_count} sources</p>
-                            </div>
-                            <div className="ml-auto p-4">
-                                <EllipsisVertical />
-                            </div>
-                        </Link>
+                        <div key={space.id} className="relative">
+                            <Link href={`/ai-assistant/spaces/${space.id}`} className="flex flex-col justify-between rounded-lg bg-zinc-200 h-48 hover:cursor-pointer hover:bg-zinc-300">
+                                <div className="p-4">
+                                    <h3 className="text-2xl font-bold">{space.title}</h3>
+                                    <p className="text-lg text-gray-500">{space.source_count} sources</p>
+                                </div>
+                                <div className="ml-auto p-4">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-zinc-500 hover:text-zinc-700"
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setShowMenu(showMenu === space.id ? null : space.id);
+                                        }}
+                                    >
+                                        <EllipsisVertical className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            </Link>
+                            {showMenu === space.id && (
+                                <div 
+                                    className="absolute right-4 bottom-16 w-48 bg-white border border-zinc-200 rounded-lg shadow-lg z-10"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            openRenameDialog(space);
+                                        }}
+                                        className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 rounded-t-lg"
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                        Rename
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDelete(space.id, space.title);
+                                        }}
+                                        className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                        Delete
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                     ))}
                 </div>
             </div>
+
+            {/* Rename Dialog */}
+            <Dialog open={!!renameSpace} onOpenChange={(open) => {
+                if (!open) {
+                    setRenameSpace(null);
+                    setNewSpaceName("");
+                }
+            }}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Rename Space</DialogTitle>
+                        <DialogDescription>
+                            Enter a new name for your learning space.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                            <Label htmlFor="name" className="text-right">
+                                Name
+                            </Label>
+                            <Input
+                                id="name"
+                                value={newSpaceName}
+                                onChange={(e) => setNewSpaceName(e.target.value)}
+                                className="col-span-3"
+                                placeholder="Enter new name"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setRenameSpace(null);
+                                setNewSpaceName("");
+                            }}
+                        >
+                            Cancel
+                        </Button>
+                        <Button onClick={handleRename}>
+                            Rename
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

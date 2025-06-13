@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getAccessToken, getCurrentUser } from "@/utils/local_user";
 import { createClient } from "@/utils/supabase/client";
 import { PRICING, validateUserBalance, getFeatureDescription } from "@/utils/pricing";
-import { EllipsisVertical, Map, MessageSquareText, MessageSquare, Plus, Search, Send, SquareArrowOutUpRight, Loader2, Bot, User, MessageCircleQuestion, CreditCard } from "lucide-react";
+import { EllipsisVertical, Map, MessageSquareText, MessageSquare, Plus, Search, Send, SquareArrowOutUpRight, Loader2, Bot, User, MessageCircleQuestion, CreditCard, Upload, X, FileText } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
 import Link from "next/link";
 import { use, useEffect, useState, useRef } from "react";
@@ -80,6 +80,11 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
     const [isGeneratingQuizz, setIsGeneratingQuizz] = useState<boolean>(false);
     const [isGeneratingStudyGuide, setIsGeneratingStudyGuide] = useState<boolean>(false);
     const [isGeneratingMindMap, setIsGeneratingMindMap] = useState<boolean>(false);
+
+    const [uploadDialogOpen, setUploadDialogOpen] = useState<boolean>(false);
+    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [isUploading, setIsUploading] = useState<boolean>(false);
+    const [isVectorizing, setIsVectorizing] = useState<boolean>(false);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -604,6 +609,89 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
         }
     }
 
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const files = event.target.files;
+        if (files) {
+            setSelectedFiles(Array.from(files));
+        }
+    };
+
+    const uploadDocuments = async () => {
+        if (selectedFiles.length === 0) return;
+
+        const user = await getCurrentUser();
+        if (!user) return;
+
+        setIsUploading(true);
+
+        try {
+            const supabaseWithToken = createClient(await getAccessToken());
+            const uploadedDocuments = [];
+
+            // Upload each file to Supabase storage and insert to documents table
+            for (const file of selectedFiles) {
+                // Upload file to storage
+                const fileName = `${user.id}/${Date.now()}_${file.name}`;
+                const { data: uploadData, error: uploadError } = await supabaseWithToken.storage
+                    .from('user-spaces')
+                    .upload(fileName, file);
+
+                if (uploadError) {
+                    console.error('Error uploading file:', uploadError);
+                    toast.error(`Failed to upload ${file.name}`);
+                    continue;
+                }
+                //get the url of the uploaded file
+                const { data: urlData } = supabaseWithToken.storage
+                    .from('user-spaces')
+                    .getPublicUrl(fileName);
+                const url = urlData.publicUrl;
+
+                uploadedDocuments.push(url);
+            }
+
+            if (uploadedDocuments.length > 0) {
+                // Start vectorizing phase
+                setIsUploading(false);
+                setIsVectorizing(true);
+                
+                // Call n8n endpoint to import sources to space
+                const response = await fetch("/n8n/webhook/import-sources-to-space", {
+                    method: "POST",
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        space_id: spaceId,
+                        urls: uploadedDocuments,
+                        user_id: user.id
+                    })
+                });
+
+                if (response.ok) {
+                    toast.success(`Successfully uploaded ${uploadedDocuments.length} document(s)`);
+                    setSelectedFiles([]);
+                    setUploadDialogOpen(false);
+                    fetchSpace(); // Refresh to show new sources
+                } else {
+                    console.error("Failed to import documents to space");
+                    toast.error("Failed to import documents to space");
+                }
+            }
+
+        } catch (error) {
+            console.error("Error uploading documents:", error);
+            toast.error("Error uploading documents. Please try again.");
+        } finally {
+            setIsUploading(false);
+            setIsVectorizing(false);
+        }
+    };
+
+    const removeFile = (index: number) => {
+        setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    };
+
     const generateMindMap = async () => {
         const user = await getCurrentUser();
         if (!user) return;
@@ -715,10 +803,94 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
             <h1 className="text-lg font-medium p-3">Sources</h1>
             <hr className="border-t border-gray-200" />
             <div className="flex flex-row gap-2 p-3">
-                <Button variant="outline" className="flex-1 border border-gray-200 bg-white hover:bg-gray-100">
-                    <Plus />
-                    <p>Add</p>
-                </Button>
+                <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button variant="outline" className="flex-1 border border-gray-200 bg-white hover:bg-gray-100">
+                            <Plus />
+                            <p>Add</p>
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                        <DialogTitle>Upload Documents</DialogTitle>
+                        <hr className="border-t border-gray-200" />
+                        <div className="flex flex-col gap-4">
+                            <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-lg p-6">
+                                <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                                <p className="text-sm text-gray-600 mb-2">Select files to upload</p>
+                                <input
+                                    type="file"
+                                    multiple
+                                    accept=".pdf,.doc,.docx,.txt,.md"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                    id="file-upload"
+                                />
+                                <label
+                                    htmlFor="file-upload"
+                                    className="cursor-pointer bg-black text-white px-4 py-2 rounded-md hover:bg-gray-800 transition-colors"
+                                >
+                                    Choose Files
+                                </label>
+                            </div>
+
+                            {selectedFiles.length > 0 && (
+                                <div className="space-y-2">
+                                    <p className="text-sm font-medium text-gray-700">Selected Files:</p>
+                                    {selectedFiles.map((file, index) => (
+                                        <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-md">
+                                            <div className="flex items-center gap-2">
+                                                <FileText className="w-4 h-4 text-gray-500" />
+                                                <span className="text-sm text-gray-700">{file.name}</span>
+                                                <span className="text-xs text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                                            </div>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={() => removeFile(index)}
+                                                disabled={isUploading || isVectorizing}
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <div className="flex flex-row gap-2 items-center justify-end">
+                                <Button
+                                    variant="outline"
+                                    onClick={() => {
+                                        setUploadDialogOpen(false);
+                                        setSelectedFiles([]);
+                                    }}
+                                    disabled={isUploading || isVectorizing}
+                                    className="border border-gray-200 bg-white hover:bg-gray-100"
+                                >
+                                    Cancel
+                                </Button>
+                                                                <Button
+                                    onClick={uploadDocuments}
+                                    disabled={selectedFiles.length === 0 || isUploading || isVectorizing}
+                                    className="bg-black text-white hover:bg-gray-800"
+                                >
+                                    {isUploading ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                            Uploading...
+                                        </>
+                                    ) : isVectorizing ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                            Vectorizing...
+                                        </>
+                                    ) : (
+                                        'Upload Documents'
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                    </DialogContent>
+                </Dialog>
                 <Dialog>
                     <DialogTrigger asChild>
                         <Button variant="outline" className="flex-1 border border-gray-200 bg-white hover:bg-gray-100">

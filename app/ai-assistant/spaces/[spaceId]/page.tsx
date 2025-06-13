@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Dialog } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Textarea } from "@/components/ui/textarea";
 import { getAccessToken, getCurrentUser } from "@/utils/local_user";
 import { createClient } from "@/utils/supabase/client";
 import { PRICING, validateUserBalance, getFeatureDescription } from "@/utils/pricing";
-import { EllipsisVertical, Map, MessageSquareText, MessageSquare, Plus, Search, Send, SquareArrowOutUpRight, Loader2, Bot, User, MessageCircleQuestion, CreditCard, Upload, X, FileText } from "lucide-react";
+import { EllipsisVertical, Map, MessageSquareText, MessageSquare, Plus, Search, Send, SquareArrowOutUpRight, Loader2, Bot, User, MessageCircleQuestion, CreditCard, Upload, X, FileText, Edit2, Trash2 } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
 import Link from "next/link";
 import { use, useEffect, useState, useRef } from "react";
@@ -85,6 +86,14 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
     const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
     const [isUploading, setIsUploading] = useState<boolean>(false);
     const [isVectorizing, setIsVectorizing] = useState<boolean>(false);
+
+    const [renameDialogOpen, setRenameDialogOpen] = useState<boolean>(false);
+    const [sourceToRename, setSourceToRename] = useState<string | null>(null);
+    const [newSourceName, setNewSourceName] = useState<string>("");
+
+    const [renameNoteDialogOpen, setRenameNoteDialogOpen] = useState<boolean>(false);
+    const [noteToRename, setNoteToRename] = useState<string | null>(null);
+    const [newNoteName, setNewNoteName] = useState<string>("");
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -692,6 +701,150 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
         setSelectedFiles(prev => prev.filter((_, i) => i !== index));
     };
 
+    const handleRenameSource = async () => {
+        if (!sourceToRename || !newSourceName.trim()) return;
+
+        try {
+            const supabaseWithToken = createClient(await getAccessToken());
+            const { error } = await supabaseWithToken
+                .from('documents')
+                .update({ title: newSourceName.trim() })
+                .eq('id', sourceToRename);
+
+            if (error) {
+                console.error('Error renaming source:', error);
+                toast.error('Failed to rename source. Please try again.');
+            } else {
+                toast.success('Source renamed successfully!');
+                fetchSpace(); // Refresh to show updated name
+                setRenameDialogOpen(false);
+                setSourceToRename(null);
+                setNewSourceName("");
+            }
+        } catch (error) {
+            console.error('Error renaming source:', error);
+            toast.error('Error renaming source. Please try again.');
+        }
+    };
+
+    const handleDeleteSource = async (sourceId: string, documentId: string) => {
+        if (!confirm('Are you sure you want to delete this source? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            const supabaseWithToken = createClient(await getAccessToken());
+            
+            // First delete from space_sources
+            const { error: spaceSourceError } = await supabaseWithToken
+                .from('space_sources')
+                .delete()
+                .eq('id', sourceId);
+
+            if (spaceSourceError) {
+                console.error('Error deleting source from space:', spaceSourceError);
+                toast.error('Failed to delete source. Please try again.');
+                return;
+            }
+
+            // Then delete the document if no other spaces are using it
+            const { data: otherSources, error: checkError } = await supabaseWithToken
+                .from('space_sources')
+                .select('id')
+                .eq('document_id', documentId);
+
+            if (checkError) {
+                console.error('Error checking other sources:', checkError);
+            } else if (otherSources.length === 0) {
+                // No other spaces using this document, safe to delete
+                const { error: documentError } = await supabaseWithToken
+                    .from('documents')
+                    .delete()
+                    .eq('id', documentId);
+
+                if (documentError) {
+                    console.error('Error deleting document:', documentError);
+                }
+            }
+
+            toast.success('Source deleted successfully!');
+            fetchSpace(); // Refresh to show updated list
+            
+            // Remove from selected sources if it was selected
+            setSelectedSources(prev => prev.filter(id => id !== documentId));
+
+        } catch (error) {
+            console.error('Error deleting source:', error);
+            toast.error('Error deleting source. Please try again.');
+        }
+    };
+
+    const openRenameDialog = (sourceId: string, currentName: string) => {
+        setSourceToRename(sourceId);
+        setNewSourceName(currentName);
+        setRenameDialogOpen(true);
+    };
+
+    const handleRenameNote = async () => {
+        if (!noteToRename || !newNoteName.trim()) return;
+
+        try {
+            const supabaseWithToken = createClient(await getAccessToken());
+            const { error } = await supabaseWithToken
+                .from('space_notes')
+                .update({ title: newNoteName.trim() })
+                .eq('id', noteToRename);
+
+            if (error) {
+                console.error('Error renaming note:', error);
+                toast.error('Failed to rename note. Please try again.');
+            } else {
+                toast.success('Note renamed successfully!');
+                fetchSpace(); // Refresh to show updated name
+                setRenameNoteDialogOpen(false);
+                setNoteToRename(null);
+                setNewNoteName("");
+            }
+        } catch (error) {
+            console.error('Error renaming note:', error);
+            toast.error('Error renaming note. Please try again.');
+        }
+    };
+
+    const handleDeleteNote = async (noteId: string) => {
+        if (!confirm('Are you sure you want to delete this note? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            const supabaseWithToken = createClient(await getAccessToken());
+            
+            const { error } = await supabaseWithToken
+                .from('space_notes')
+                .delete()
+                .eq('id', noteId);
+
+            if (error) {
+                console.error('Error deleting note:', error);
+                toast.error('Failed to delete note. Please try again.');
+                return;
+            }
+
+            toast.success('Note deleted successfully!');
+            fetchSpace(); // Refresh to show updated list
+
+        } catch (error) {
+            console.error('Error deleting note:', error);
+            toast.error('Error deleting note. Please try again.');
+        }
+    };
+
+    const openRenameNoteDialog = (noteId: string, currentName: string) => {
+        setNoteToRename(noteId);
+        setNewNoteName(currentName);
+        setRenameNoteDialogOpen(true);
+    };
+
     const generateMindMap = async () => {
         const user = await getCurrentUser();
         if (!user) return;
@@ -1003,7 +1156,29 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
                 {sources.map((source) => (
                     <div key={source.id} className="flex flex-row gap-2 items-center hover:bg-gray-100 p-2 rounded-md justify-between">
                         <div className="flex flex-row gap-2 items-center font-medium">
-                            <EllipsisVertical className="shrink-0 w-4" />
+                            <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                    <button className="shrink-0 w-4 h-4 hover:bg-gray-200 rounded flex items-center justify-center">
+                                        <EllipsisVertical className="w-4 h-4" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="start" className="border-gray-200" side="bottom" sideOffset={5}>
+                                    <DropdownMenuItem 
+                                        onClick={() => openRenameDialog(source.document_info.id, source.document_info.title)}
+                                        className="cursor-pointer"
+                                    >
+                                        <Edit2 className="w-4 h-4 mr-2" />
+                                        Rename
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem 
+                                        onClick={() => handleDeleteSource(source.id, source.document_info.id)}
+                                        className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        Delete
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                             <p className="line-clamp-1 text-sm">{source.document_info.title}</p>
                         </div>
                         <Checkbox
@@ -1145,21 +1320,148 @@ export default function SpaceDetails({ params }: { params: Promise<{ spaceId: st
             <div className="p-3">
                 <h1 className="text-lg font-medium">Notes</h1>
                 {space?.space_notes.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).map((note) => {
-                    switch (note.type) {
-                        case "flash-card":
-                            return <FlashCardDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
-                        case "mind-map":
-                            return <MindMapDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
-                        case "markdown":
-                            return <MarkdownDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
-                        case "quizz":
-                            return <QuizzDialog key={note.id} id={note.id} title={note.title} createdAt={note.created_at} />
-                        default:
-                            return <div key={note.id}>{note.title}</div>
-                    }
+                    return (
+                        <div key={note.id} className="flex flex-row gap-2 items-center hover:bg-gray-100 rounded-md justify-between px-2">
+                            <div className="flex-1 min-w-0">
+                                {(() => {
+                                    switch (note.type) {
+                                        case "flash-card":
+                                            return <FlashCardDialog id={note.id} title={note.title} createdAt={note.created_at} />
+                                        case "mind-map":
+                                            return <MindMapDialog id={note.id} title={note.title} createdAt={note.created_at} />
+                                        case "markdown":
+                                            return <MarkdownDialog id={note.id} title={note.title} createdAt={note.created_at} />
+                                        case "quizz":
+                                            return <QuizzDialog id={note.id} title={note.title} createdAt={note.created_at} />
+                                        default:
+                                            return <div>{note.title}</div>
+                                    }
+                                })()}
+                            </div>
+                            <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                    <button className="shrink-0 w-6 h-6 hover:bg-gray-200 rounded flex items-center justify-center">
+                                        <EllipsisVertical className="w-4 h-4" />
+                                    </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="border-gray-200" side="bottom" sideOffset={5}>
+                                    <DropdownMenuItem 
+                                        onClick={() => openRenameNoteDialog(note.id, note.title)}
+                                        className="cursor-pointer"
+                                    >
+                                        <Edit2 className="w-4 h-4 mr-2" />
+                                        Rename
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem 
+                                        onClick={() => handleDeleteNote(note.id)}
+                                        className="cursor-pointer text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                        <Trash2 className="w-4 h-4 mr-2" />
+                                        Delete
+                                    </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                    );
                 })}
             </div>
         </div>
+
+        {/* Rename Source Dialog */}
+        <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+            <DialogContent>
+                <DialogTitle>Rename Source</DialogTitle>
+                <hr className="border-t border-gray-200" />
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                        <label htmlFor="source-name" className="text-sm font-medium text-gray-700">
+                            Source Name
+                        </label>
+                        <Input
+                            id="source-name"
+                            value={newSourceName}
+                            onChange={(e) => setNewSourceName(e.target.value)}
+                            placeholder="Enter new source name..."
+                            className="border border-gray-200 bg-white"
+                            onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleRenameSource();
+                                }
+                            }}
+                        />
+                    </div>
+                    
+                    <div className="flex flex-row gap-2 items-center justify-end">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setRenameDialogOpen(false);
+                                setSourceToRename(null);
+                                setNewSourceName("");
+                            }}
+                            className="border border-gray-200 bg-white hover:bg-gray-100"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleRenameSource}
+                            disabled={!newSourceName.trim()}
+                            className="bg-black text-white hover:bg-gray-800"
+                        >
+                            Rename
+                        </Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+
+        {/* Rename Note Dialog */}
+        <Dialog open={renameNoteDialogOpen} onOpenChange={setRenameNoteDialogOpen}>
+            <DialogContent>
+                <DialogTitle>Rename Note</DialogTitle>
+                <hr className="border-t border-gray-200" />
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-2">
+                        <label htmlFor="note-name" className="text-sm font-medium text-gray-700">
+                            Note Name
+                        </label>
+                        <Input
+                            id="note-name"
+                            value={newNoteName}
+                            onChange={(e) => setNewNoteName(e.target.value)}
+                            placeholder="Enter new note name..."
+                            className="border border-gray-200 bg-white"
+                            onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                    handleRenameNote();
+                                }
+                            }}
+                        />
+                    </div>
+                    
+                    <div className="flex flex-row gap-2 items-center justify-end">
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setRenameNoteDialogOpen(false);
+                                setNoteToRename(null);
+                                setNewNoteName("");
+                            }}
+                            className="border border-gray-200 bg-white hover:bg-gray-100"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleRenameNote}
+                            disabled={!newNoteName.trim()}
+                            className="bg-black text-white hover:bg-gray-800"
+                        >
+                            Rename
+                        </Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
     </div>
 
     )

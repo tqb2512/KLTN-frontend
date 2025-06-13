@@ -1,5 +1,5 @@
 "use client";
-import { getAccessToken } from "@/utils/local_user";
+import { getAccessToken, getCurrentUser } from "@/utils/local_user";
 import { createClient } from "@/utils/supabase/client";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,11 @@ export default function AIAssistant() {
 
     useEffect(() => {
         const fetchSpaces = async () => {
+            const user = await getCurrentUser();
             const supabase = createClient(await getAccessToken());
-            const { data, error } = await supabase.from("spaces").select("*");
+            const { data, error } = await supabase.from("spaces")
+                .select("*")
+                .eq("creator_id", user?.id || "");
             if (error) {
                 console.error(error);
             } else {
@@ -119,11 +122,11 @@ export default function AIAssistant() {
                     {spaces.map((space) => (
                         <div key={space.id} className="relative">
                             <Link href={`/ai-assistant/spaces/${space.id}`} className="flex flex-col justify-between rounded-lg bg-zinc-200 h-48 hover:cursor-pointer hover:bg-zinc-300">
-                                <div className="p-4">
-                                    <h3 className="text-2xl font-bold">{space.title}</h3>
+                                <div className="p-4 pr-12 flex-1 min-h-0">
+                                    <h3 className="text-2xl font-bold line-clamp-3 mb-2">{space.title}</h3>
                                     <p className="text-lg text-gray-500">{space.source_count} sources</p>
                                 </div>
-                                <div className="ml-auto p-4" onClick={(e) => e.stopPropagation()}>
+                                <div className="absolute bottom-4 right-4" onClick={(e) => e.stopPropagation()}>
                                     <DropdownMenu modal={false}>
                                         <DropdownMenuTrigger asChild>
                                             <Button

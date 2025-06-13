@@ -28,6 +28,11 @@ export interface PostCardProps {
         file_size?: number;
     }[];
     liked: boolean;
+    currentUser?: {
+        id: string;
+        username: string;
+        profile_picture_url: string;
+    } | null;
 }
 
 export const timeAgo = (created_at: string) => {
@@ -51,11 +56,10 @@ export const timeAgo = (created_at: string) => {
     }
 }
 
-export default function PostCard({ id, user, content, created_at, likes, comments, attachments, liked: initialLiked }: PostCardProps) {
+export default function PostCard({ id, user, content, created_at, likes, comments, attachments, liked: initialLiked, currentUser }: PostCardProps) {
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [liked, setLiked] = useState(initialLiked);
     const [likesCount, setLikesCount] = useState(likes);
-    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [isAuthor, setIsAuthor] = useState(false);
     const [showReportDialog, setShowReportDialog] = useState(false);
     const [selectedReason, setSelectedReason] = useState<string>("");
@@ -75,14 +79,10 @@ export default function PostCard({ id, user, content, created_at, likes, comment
 
     useEffect(() => {
         const initUser = async () => {
-            const currentUser = await getCurrentUser();
-            setCurrentUserId(currentUser?.id || null);
             setIsAuthor(currentUser?.id === user?.id);
         };
         initUser();
-    }, [user?.id]);
-
-
+    }, [user?.id, currentUser?.id]);
 
     // Sort attachments: images first (by index), then other files (by index)
     const sortedAttachments = [...(attachments || [])].sort((a, b) => {
@@ -165,14 +165,13 @@ export default function PostCard({ id, user, content, created_at, likes, comment
             return;
         }
 
+        if (!currentUser) {
+            alert("You must be logged in to report posts");
+            return;
+        }
+
         setIsReporting(true);
         try {
-            const currentUser = await getCurrentUser();
-            if (!currentUser) {
-                alert("You must be logged in to report posts");
-                return;
-            }
-
             const supabase = createClient(await getAccessToken());
             const { error } = await supabase
                 .from("reports")

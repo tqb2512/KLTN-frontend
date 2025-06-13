@@ -23,6 +23,7 @@ export default function Home() {
     const supabase = createClient();
     const [posts, setPosts] = useState<any[]>([]);
     const [user, setUser] = useState<any>(null);
+    const [currentUser, setCurrentUser] = useState<any>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [postContent, setPostContent] = useState("");
     const [isPosting, setIsPosting] = useState(false);
@@ -45,6 +46,7 @@ export default function Home() {
 
             if (posts) {
                 const user = await getCurrentUser();
+                setCurrentUser(user);
                 const { data: likes, error: likesError } = await supabase
                     .from("likes")
                     .select("*")
@@ -128,6 +130,13 @@ export default function Home() {
         setToxicityWarning(null);
         
         try {
+            // Check if user is logged in
+            if (!currentUser) {
+                alert("You must be logged in to create a post");
+                setIsPosting(false);
+                return;
+            }
+
             // Check content toxicity if there's text content
             if (postContent.trim()) {
                 const toxicityResult = await checkContentToxicity(postContent.trim());
@@ -141,8 +150,6 @@ export default function Home() {
                     return;
                 }
             }
-
-            const currentUser = await getCurrentUser();
 
             // Create the post first
             const { data: newPost, error: postError } = await supabase
@@ -351,7 +358,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4 px-0">
                     {posts.map((post) => (
-                        <PostCard key={post.id} id={post.id} user={post.users} content={post.content} created_at={post.created_at} likes={post.likes} comments={post.comments} attachments={post.attachments} liked={post.liked} />
+                        <PostCard key={post.id} id={post.id} user={post.users} content={post.content} created_at={post.created_at} likes={post.likes} comments={post.comments} attachments={post.attachments} liked={post.liked} currentUser={currentUser} />
                     ))}
                 </CardContent>
             </Card>

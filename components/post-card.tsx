@@ -1,15 +1,17 @@
-import { Heart, MessageCircle, ChevronLeft, ChevronRight, Download, FileText } from "lucide-react";
+import { Heart, MessageCircle, ChevronLeft, ChevronRight, Download, FileText, MoreHorizontal, Flag, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import CommentDialog from "./comment-dialog";
 import { createClient } from "@/utils/supabase/client";
-import { getAccessToken } from "@/utils/local_user";
+import { getAccessToken, getCurrentUser } from "@/utils/local_user";
 
 export interface PostCardProps {
     id: string;
     user: {
+        id?: string;
         username: string;
         profile_picture_url: string;
     }
@@ -52,6 +54,50 @@ export default function PostCard({ id, user, content, created_at, likes, comment
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [liked, setLiked] = useState(initialLiked);
     const [likesCount, setLikesCount] = useState(likes);
+    const [showMenu, setShowMenu] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+    const [isAuthor, setIsAuthor] = useState(false);
+    const [showReportDialog, setShowReportDialog] = useState(false);
+    const [selectedReason, setSelectedReason] = useState<string>("");
+    const [reportNotes, setReportNotes] = useState<string>("");
+    const [isReporting, setIsReporting] = useState(false);
+
+    const reportReasons = [
+        { value: "spam", label: "Spam or unwanted content" },
+        { value: "harassment", label: "Harassment or bullying" },
+        { value: "hate_speech", label: "Hate speech or discrimination" },
+        { value: "violence", label: "Violence or threats" },
+        { value: "inappropriate_content", label: "Inappropriate or offensive content" },
+        { value: "misinformation", label: "False or misleading information" },
+        { value: "copyright", label: "Copyright violation" },
+        { value: "other", label: "Other" }
+    ];
+
+    useEffect(() => {
+        const initUser = async () => {
+            const currentUser = await getCurrentUser();
+            setCurrentUserId(currentUser?.id || null);
+            setIsAuthor(currentUser?.id === user?.id);
+        };
+        initUser();
+    }, [user?.id]);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (showMenu) {
+                setShowMenu(false);
+            }
+        };
+
+        if (showMenu) {
+            document.addEventListener('click', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('click', handleClickOutside);
+        };
+    }, [showMenu]);
 
     // Sort attachments: images first (by index), then other files (by index)
     const sortedAttachments = [...(attachments || [])].sort((a, b) => {
@@ -124,107 +170,298 @@ export default function PostCard({ id, user, content, created_at, likes, comment
         }
     }
 
+    const handleReport = async () => {
+        setShowMenu(false);
+        setShowReportDialog(true);
+    };
+
+    const submitReport = async () => {
+        if (!selectedReason) {
+            alert("Please select a reason for reporting");
+            return;
+        }
+
+        setIsReporting(true);
+        try {
+            const currentUser = await getCurrentUser();
+            if (!currentUser) {
+                alert("You must be logged in to report posts");
+                return;
+            }
+
+            const supabase = createClient(await getAccessToken());
+            const { error } = await supabase
+                .from("reports")
+                .upsert({
+                    user_id: currentUser.id,
+                    post_id: id,
+                    reason: selectedReason,
+                    notes: reportNotes.trim() || null
+                });
+
+            if (error) {
+                console.error(error);
+                if (error.code === '23505') { // Unique constraint violation
+                    alert("You have already reported this post");
+                } else {
+                    alert("Error reporting post");
+                }
+            } else {
+                alert("Post reported successfully. Thank you for helping keep our community safe.");
+                setShowReportDialog(false);
+                setSelectedReason("");
+                setReportNotes("");
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Error reporting post");
+        } finally {
+            setIsReporting(false);
+        }
+    };
+
+    const handleDelete = async () => {
+        if (!confirm("Are you sure you want to delete this post?")) {
+            return;
+        }
+
+        try {
+            const supabase = createClient(await getAccessToken());
+            const { error } = await supabase
+                .from("posts")
+                .delete()
+                .eq("id", id);
+
+            if (error) {
+                console.error(error);
+                alert("Error deleting post");
+            } else {
+                alert("Post deleted successfully");
+                // You might want to refresh the page or remove the post from the UI
+                window.location.reload();
+            }
+        } catch (error) {
+            console.error(error);
+            alert("Error deleting post");
+        }
+    };
+
     return (
-        <div className="flex flex-row gap-3 border-t border-zinc-200 pt-4 px-6">
-            <Avatar className="w-10 h-10">
-                <AvatarImage src={user?.profile_picture_url} />
-                <AvatarFallback>{user?.username.charAt(0)}</AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col w-full">
-                <div className="flex flex-row gap-3">
-                    <p className="text-sm font-medium">{user?.username}</p>
-                    <p className="text-sm text-zinc-500">{timeAgo(created_at)}</p>
-                </div>
-                <p>{content}</p>
-
-                {/* Image attachments */}
-                {imageAttachments && imageAttachments.length > 0 && (
-                    <div className="relative mt-2 rounded-lg overflow-hidden">
-                        <div className="relative h-96 w-full">
-                            <Image
-                                src={imageAttachments[currentImageIndex].attachment_url}
-                                alt={`Attachment ${currentImageIndex + 1}`}
-                                fill
-                                className="object-cover"
-                            />
+        <>
+            <div className="flex flex-row gap-3 border-t border-zinc-200 pt-4 px-6">
+                <Avatar className="w-10 h-10">
+                    <AvatarImage src={user?.profile_picture_url} />
+                    <AvatarFallback>{user?.username.charAt(0)}</AvatarFallback>
+                </Avatar>
+                <div className="flex flex-col w-full">
+                    <div className="flex flex-row justify-between items-start">
+                        <div className="flex flex-row gap-3">
+                            <p className="text-sm font-medium">{user?.username}</p>
+                            <p className="text-sm text-zinc-500">{timeAgo(created_at)}</p>
                         </div>
-                        {imageAttachments.length > 1 && (
-                            <>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
-                                    onClick={prevImage}
-                                >
-                                    <ChevronLeft className="h-6 w-6" />
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
-                                    onClick={nextImage}
-                                >
-                                    <ChevronRight className="h-6 w-6" />
-                                </Button>
-                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
-                                    {imageAttachments.map((_, index) => (
-                                        <div
-                                            key={index}
-                                            className={`w-2 h-2 rounded-full ${index === currentImageIndex
-                                                ? 'bg-white'
-                                                : 'bg-white/50'
-                                                }`}
-                                        />
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
-
-                {/* File attachments */}
-                {fileAttachments && fileAttachments.length > 0 && (
-                    <div className="mt-2 space-y-2">
-                        {fileAttachments.map((attachment, index) => (
-                            <div 
-                                key={index} 
-                                className="flex items-center gap-3 p-3 border border-zinc-200 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                        <div className="relative">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-zinc-500 hover:text-zinc-700"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setShowMenu(!showMenu);
+                                }}
                             >
-                                <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg">
-                                    <FileText className="h-5 w-5 text-blue-600" />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900 truncate">
-                                        {attachment.original_name || getFileNameFromUrl(attachment.attachment_url)}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                        {attachment.file_size ? `${(attachment.file_size / 1024 / 1024).toFixed(2)} MB` : `${getFileExtension(attachment.attachment_url)} file`}
-                                    </p>
-                                </div>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-blue-600 hover:text-blue-800"
-                                    onClick={() => handleDownload(attachment.attachment_url, attachment.original_name || getFileNameFromUrl(attachment.attachment_url))}
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                            {showMenu && (
+                                <div 
+                                    className="absolute right-0 mt-1 w-48 bg-white border border-zinc-200 rounded-lg shadow-lg z-10"
+                                    onClick={(e) => e.stopPropagation()}
                                 >
-                                    <Download className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        ))}
+                                    {isAuthor ? (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDelete();
+                                            }}
+                                            className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-lg"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            Delete post
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleReport();
+                                            }}
+                                            className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 rounded-lg"
+                                        >
+                                            <Flag className="h-4 w-4" />
+                                            Report post
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                )}
+                    <p>{content}</p>
 
-                <div className="flex flex-row gap-8 pt-2">
-                    <div className="flex flex-row gap-1 items-center">
-                        <Heart className={`w-5 h-5 cursor-pointer ${liked ? 'text-red-300' : 'text-zinc-500'}`} onClick={handleLike} />
-                        <p className="text-zinc-500 text-sm">{likesCount > 0 && likesCount}</p>
-                    </div>
-                    <div className="flex flex-row gap-1 items-center">
-                        <CommentDialog post_id={id} />
-                        <p className="text-zinc-500 text-sm">{comments > 0 && comments}</p>
+                    {/* Image attachments */}
+                    {imageAttachments && imageAttachments.length > 0 && (
+                        <div className="relative mt-2 rounded-lg overflow-hidden">
+                            <div className="relative h-96 w-full">
+                                <Image
+                                    src={imageAttachments[currentImageIndex].attachment_url}
+                                    alt={`Attachment ${currentImageIndex + 1}`}
+                                    fill
+                                    className="object-cover"
+                                />
+                            </div>
+                            {imageAttachments.length > 1 && (
+                                <>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
+                                        onClick={prevImage}
+                                    >
+                                        <ChevronLeft className="h-6 w-6" />
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white"
+                                        onClick={nextImage}
+                                    >
+                                        <ChevronRight className="h-6 w-6" />
+                                    </Button>
+                                    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1">
+                                        {imageAttachments.map((_, index) => (
+                                            <div
+                                                key={index}
+                                                className={`w-2 h-2 rounded-full ${index === currentImageIndex
+                                                    ? 'bg-white'
+                                                    : 'bg-white/50'
+                                                    }`}
+                                            />
+                                        ))}
+                                    </div>
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {/* File attachments */}
+                    {fileAttachments && fileAttachments.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                            {fileAttachments.map((attachment, index) => (
+                                <div 
+                                    key={index} 
+                                    className="flex items-center gap-3 p-3 border border-zinc-200 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors"
+                                >
+                                    <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg">
+                                        <FileText className="h-5 w-5 text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-900 truncate">
+                                            {attachment.original_name || getFileNameFromUrl(attachment.attachment_url)}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            {attachment.file_size ? `${(attachment.file_size / 1024 / 1024).toFixed(2)} MB` : `${getFileExtension(attachment.attachment_url)} file`}
+                                        </p>
+                                    </div>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-blue-600 hover:text-blue-800"
+                                        onClick={() => handleDownload(attachment.attachment_url, attachment.original_name || getFileNameFromUrl(attachment.attachment_url))}
+                                    >
+                                        <Download className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    <div className="flex flex-row gap-8 pt-2">
+                        <div className="flex flex-row gap-1 items-center">
+                            <Heart className={`w-5 h-5 cursor-pointer ${liked ? 'text-red-300' : 'text-zinc-500'}`} onClick={handleLike} />
+                            <p className="text-zinc-500 text-sm">{likesCount > 0 && likesCount}</p>
+                        </div>
+                        <div className="flex flex-row gap-1 items-center">
+                            <CommentDialog post_id={id} />
+                            <p className="text-zinc-500 text-sm">{comments > 0 && comments}</p>
+                        </div>
                     </div>
                 </div>
             </div>
-        </div>
+
+            {/* Report Dialog */}
+            <Dialog open={showReportDialog} onOpenChange={setShowReportDialog}>
+                <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                        <DialogTitle>Report Post</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                        <p className="text-sm text-zinc-600">
+                            Help us understand what's wrong with this post by selecting a reason below.
+                        </p>
+                        <div className="space-y-2">
+                            {reportReasons.map((reason) => (
+                                <label
+                                    key={reason.value}
+                                    className="flex items-center space-x-3 cursor-pointer p-2 rounded-lg hover:bg-zinc-50"
+                                >
+                                    <input
+                                        type="radio"
+                                        name="reason"
+                                        value={reason.value}
+                                        checked={selectedReason === reason.value}
+                                        onChange={(e) => setSelectedReason(e.target.value)}
+                                        className="w-4 h-4 text-blue-600"
+                                    />
+                                    <span className="text-sm">{reason.label}</span>
+                                </label>
+                            ))}
+                        </div>
+                        <div className="space-y-2">
+                            <div className="text-sm font-medium text-zinc-700">
+                                Additional details (optional)
+                            </div>
+                            <textarea
+                                value={reportNotes}
+                                onChange={(e) => setReportNotes(e.target.value)}
+                                placeholder="Please provide any additional context or details about this report..."
+                                className="w-full min-h-[80px] px-3 py-4 border border-zinc-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-zinc-300 resize-none"
+                                maxLength={500}
+                                disabled={isReporting}
+                            />
+                            <div className="text-xs text-zinc-500 text-right">
+                                {reportNotes.length}/500 characters
+                            </div>
+                        </div>
+                        <div className="flex justify-end gap-3">
+                            <Button
+                                variant="outline"
+                                onClick={() => {
+                                    setShowReportDialog(false);
+                                    setSelectedReason("");
+                                    setReportNotes("");
+                                }}
+                                disabled={isReporting}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={submitReport}
+                                disabled={!selectedReason || isReporting}
+                                className="bg-red-600 hover:bg-red-700 text-white"
+                            >
+                                {isReporting ? "Reporting..." : "Submit Report"}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+        </>
     )
 }

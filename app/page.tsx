@@ -35,7 +35,7 @@ export default function Home() {
             const { data: posts, error } = await supabase
                 .from("posts")
                 .select(`*, 
-                    users!posts_creator_id_fkey(username, profile_picture_url), 
+                    users!posts_creator_id_fkey(id, username, profile_picture_url), 
                     attachments(attachment_url, index, type, original_name, file_size)`)
                 .order("created_at", { ascending: false });
 
@@ -201,7 +201,7 @@ export default function Home() {
             const { data: completePost, error: fetchError } = await supabase
                 .from("posts")
                 .select(`*, 
-                    users!posts_creator_id_fkey(username, profile_picture_url), 
+                    users!posts_creator_id_fkey(id, username, profile_picture_url), 
                     attachments(attachment_url, index, type, original_name, file_size)`)
                 .eq("id", newPost.id)
                 .single();

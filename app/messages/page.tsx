@@ -6,6 +6,7 @@ import { getAccessToken, getCurrentUser } from "@/utils/local_user";
 import { createClient } from "@/utils/supabase/client";
 import { PlusIcon, SendHorizonal } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 
 interface Conversation {
     user_receive: {
@@ -27,6 +28,8 @@ interface Conversation {
 }
 
 export default function Messages() {
+    const searchParams = useSearchParams();
+    const targetUserId = searchParams.get('userId');
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -122,6 +125,56 @@ export default function Messages() {
         fetchConversations();
     }, []);
 
+    // Auto-select conversation based on URL parameter
+    useEffect(() => {
+        if (targetUserId && conversations.length > 0) {
+            // Try to find existing conversation with the target user
+            const existingConversation = conversations.find(
+                conv => conv.user_receive.id === targetUserId
+            );
+
+            if (existingConversation) {
+                setSelectedConversation(existingConversation);
+            } else {
+                // Create a new conversation object for the target user
+                const createNewConversation = async () => {
+                    const supabase = createClient(await getAccessToken());
+                    const { data: userData, error } = await supabase
+                        .from("users")
+                        .select("id, username, profile_picture_url")
+                        .eq("id", targetUserId)
+                        .single();
+
+                    if (!error && userData) {
+                        const newConversation: Conversation = {
+                            user_receive: {
+                                id: userData.id,
+                                username: userData.username,
+                                profile_picture_url: userData.profile_picture_url
+                            },
+                            last_message: {
+                                message: "",
+                                created_at: new Date().toISOString()
+                            },
+                            messages: []
+                        };
+                        setSelectedConversation(newConversation);
+                        
+                        // Add to conversations list if not already there
+                        setConversations(prev => {
+                            const exists = prev.some(conv => conv.user_receive.id === targetUserId);
+                            if (!exists) {
+                                return [...prev, newConversation];
+                            }
+                            return prev;
+                        });
+                    }
+                };
+                createNewConversation();
+            }
+        }
+    }, [targetUserId, conversations]);
+
     useEffect(() => {
 
         const subscribeMessagesChannel = async () => {
@@ -175,7 +228,7 @@ export default function Messages() {
 
     return (
         <div className="w-full h-screen flex">
-            <aside className="w-1/5 h-full border-r border-gray-200">
+            <aside className="w-1/3 h-full border-r border-gray-200">
                 <div className="w-full h-16 flex flex-row items-center justify-between p-4 border-b border-gray-200">
                     <h1 className="text-2xl font-bold">Messages</h1>
                 </div>

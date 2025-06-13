@@ -21,6 +21,8 @@ export interface PostCardProps {
         attachment_url: string;
         index: number;
         type?: string;
+        original_name?: string;
+        file_size?: number;
     }[];
     liked: boolean;
 }
@@ -193,17 +195,17 @@ export default function PostCard({ id, user, content, created_at, likes, comment
                                 </div>
                                 <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-gray-900 truncate">
-                                        {getFileNameFromUrl(attachment.attachment_url)}
+                                        {attachment.original_name || getFileNameFromUrl(attachment.attachment_url)}
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                        {getFileExtension(attachment.attachment_url)} file
+                                        {attachment.file_size ? `${(attachment.file_size / 1024 / 1024).toFixed(2)} MB` : `${getFileExtension(attachment.attachment_url)} file`}
                                     </p>
                                 </div>
                                 <Button
                                     variant="ghost"
                                     size="sm"
                                     className="text-blue-600 hover:text-blue-800"
-                                    onClick={() => handleDownload(attachment.attachment_url, getFileNameFromUrl(attachment.attachment_url))}
+                                    onClick={() => handleDownload(attachment.attachment_url, attachment.original_name || getFileNameFromUrl(attachment.attachment_url))}
                                 >
                                     <Download className="h-4 w-4" />
                                 </Button>

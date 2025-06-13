@@ -9,8 +9,9 @@ import { getAccessToken, getCurrentUser, getUserProfile } from "@/utils/local_us
 import { createClient } from "@/utils/supabase/client";
 import { uploadFileToSupabase } from "@/app/actions/upload-actions";
 import { useEffect, useState, useRef } from "react";
-import { X, Upload, FileText, Image as ImageIcon } from "lucide-react";
+import { X, Upload, FileText, Image as ImageIcon, AlertTriangle } from "lucide-react";
 import Image from "next/image";
+import { checkContentToxicity, isPerspectiveError } from "@/utils/perspective";
 
 interface AttachmentFile {
     file: File;
@@ -26,6 +27,7 @@ export default function Home() {
     const [postContent, setPostContent] = useState("");
     const [isPosting, setIsPosting] = useState(false);
     const [attachments, setAttachments] = useState<AttachmentFile[]>([]);
+    const [toxicityWarning, setToxicityWarning] = useState<string | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -34,7 +36,7 @@ export default function Home() {
                 .from("posts")
                 .select(`*, 
                     users!posts_creator_id_fkey(username, profile_picture_url), 
-                    attachments(attachment_url, index, type)`)
+                    attachments(attachment_url, index, type, original_name, file_size)`)
                 .order("created_at", { ascending: false });
 
             if (error) {
@@ -123,7 +125,23 @@ export default function Home() {
         if (!postContent.trim() && attachments.length === 0) return;
 
         setIsPosting(true);
+        setToxicityWarning(null);
+        
         try {
+            // Check content toxicity if there's text content
+            if (postContent.trim()) {
+                const toxicityResult = await checkContentToxicity(postContent.trim());
+                
+                if (isPerspectiveError(toxicityResult)) {
+                    console.error('Error checking content toxicity:', toxicityResult.error);
+                    // Continue with post creation even if toxicity check fails
+                } else if (toxicityResult.isToxic) {
+                    setToxicityWarning('Your post may contain inappropriate content. Please review and edit your post.');
+                    setIsPosting(false);
+                    return;
+                }
+            }
+
             const currentUser = await getCurrentUser();
 
             // Create the post first
@@ -165,6 +183,8 @@ export default function Home() {
                                 attachment_url: uploadResult.fileUrl,
                                 index: i,
                                 type: attachment.type,
+                                original_name: uploadResult.originalName,
+                                file_size: uploadResult.size,
                                 creator_id: currentUser?.id,
                             })
                             .select()
@@ -182,7 +202,7 @@ export default function Home() {
                 .from("posts")
                 .select(`*, 
                     users!posts_creator_id_fkey(username, profile_picture_url), 
-                    attachments(attachment_url, index, type)`)
+                    attachments(attachment_url, index, type, original_name, file_size)`)
                 .eq("id", newPost.id)
                 .single();
 
@@ -193,6 +213,7 @@ export default function Home() {
 
             setPostContent("");
             setAttachments([]);
+            setToxicityWarning(null);
             setIsDialogOpen(false);
         } catch (error) {
             console.error("Error creating post:", error);
@@ -234,6 +255,14 @@ export default function Home() {
                                     onChange={(e) => setPostContent(e.target.value)}
                                     className="min-h-[100px] resize-none border-none focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:outline-none"
                                 />
+                                
+                                {/* Toxicity Warning */}
+                                {toxicityWarning && (
+                                    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
+                                        <AlertTriangle className="h-4 w-4" />
+                                        <span className="text-sm">{toxicityWarning}</span>
+                                    </div>
+                                )}
                                 
                                 {/* File attachments display */}
                                 {attachments.length > 0 && (

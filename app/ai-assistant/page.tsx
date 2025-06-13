@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { EllipsisVertical, Plus, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -19,7 +20,6 @@ export interface Space {
 export default function AIAssistant() {
 
     const [spaces, setSpaces] = useState<Space[]>([]);
-    const [showMenu, setShowMenu] = useState<string | null>(null);
     const [renameSpace, setRenameSpace] = useState<{ id: string; title: string } | null>(null);
     const [newSpaceName, setNewSpaceName] = useState("");
 
@@ -36,22 +36,7 @@ export default function AIAssistant() {
         fetchSpaces();
     }, []);
 
-    // Close menu when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (showMenu) {
-                setShowMenu(null);
-            }
-        };
 
-        if (showMenu) {
-            document.addEventListener('click', handleClickOutside);
-        }
-
-        return () => {
-            document.removeEventListener('click', handleClickOutside);
-        };
-    }, [showMenu]);
 
     const handleDelete = async (spaceId: string, spaceName: string) => {
         if (!confirm(`Are you sure you want to delete "${spaceName}"? This action cannot be undone.`)) {
@@ -70,7 +55,6 @@ export default function AIAssistant() {
                 alert("Error deleting space");
             } else {
                 setSpaces(spaces.filter(space => space.id !== spaceId));
-                setShowMenu(null);
             }
         } catch (error) {
             console.error(error);
@@ -102,7 +86,6 @@ export default function AIAssistant() {
                 ));
                 setRenameSpace(null);
                 setNewSpaceName("");
-                setShowMenu(null);
             }
         } catch (error) {
             console.error(error);
@@ -113,7 +96,6 @@ export default function AIAssistant() {
     const openRenameDialog = (space: Space) => {
         setRenameSpace({ id: space.id, title: space.title });
         setNewSpaceName(space.title);
-        setShowMenu(null);
     };
 
     const createSpace = async () => {
@@ -141,48 +123,45 @@ export default function AIAssistant() {
                                     <h3 className="text-2xl font-bold">{space.title}</h3>
                                     <p className="text-lg text-gray-500">{space.source_count} sources</p>
                                 </div>
-                                <div className="ml-auto p-4">
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 text-zinc-500 hover:text-zinc-700"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setShowMenu(showMenu === space.id ? null : space.id);
-                                        }}
-                                    >
-                                        <EllipsisVertical className="h-4 w-4" />
-                                    </Button>
+                                <div className="ml-auto p-4" onClick={(e) => e.stopPropagation()}>
+                                    <DropdownMenu modal={false}>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-8 w-8 text-zinc-500 hover:text-zinc-700"
+                                                onClick={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                }}
+                                            >
+                                                <EllipsisVertical className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48 border-zinc-200" sideOffset={5}>
+                                            <DropdownMenuItem 
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    openRenameDialog(space);
+                                                }}
+                                            >
+                                                <Pencil className="h-4 w-4" />
+                                                Rename
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem 
+                                                variant="destructive"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDelete(space.id, space.title);
+                                                }}
+                                            >
+                                                <Trash2 className="h-4 w-4" />
+                                                Delete
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
                                 </div>
                             </Link>
-                            {showMenu === space.id && (
-                                <div 
-                                    className="absolute right-4 bottom-16 w-48 bg-white border border-zinc-200 rounded-lg shadow-lg z-10"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            openRenameDialog(space);
-                                        }}
-                                        className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 rounded-t-lg"
-                                    >
-                                        <Pencil className="h-4 w-4" />
-                                        Rename
-                                    </button>
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDelete(space.id, space.title);
-                                        }}
-                                        className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                        Delete
-                                    </button>
-                                </div>
-                            )}
                         </div>
                     ))}
                 </div>

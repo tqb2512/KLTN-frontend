@@ -2,6 +2,7 @@ import { Heart, MessageCircle, ChevronLeft, ChevronRight, Download, FileText, Mo
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import Image from "next/image";
 import { useState, useEffect } from "react";
 import CommentDialog from "./comment-dialog";
@@ -54,7 +55,6 @@ export default function PostCard({ id, user, content, created_at, likes, comment
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [liked, setLiked] = useState(initialLiked);
     const [likesCount, setLikesCount] = useState(likes);
-    const [showMenu, setShowMenu] = useState(false);
     const [currentUserId, setCurrentUserId] = useState<string | null>(null);
     const [isAuthor, setIsAuthor] = useState(false);
     const [showReportDialog, setShowReportDialog] = useState(false);
@@ -82,22 +82,7 @@ export default function PostCard({ id, user, content, created_at, likes, comment
         initUser();
     }, [user?.id]);
 
-    // Close menu when clicking outside
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (showMenu) {
-                setShowMenu(false);
-            }
-        };
 
-        if (showMenu) {
-            document.addEventListener('click', handleClickOutside);
-        }
-
-        return () => {
-            document.removeEventListener('click', handleClickOutside);
-        };
-    }, [showMenu]);
 
     // Sort attachments: images first (by index), then other files (by index)
     const sortedAttachments = [...(attachments || [])].sort((a, b) => {
@@ -171,7 +156,6 @@ export default function PostCard({ id, user, content, created_at, likes, comment
     }
 
     const handleReport = async () => {
-        setShowMenu(false);
         setShowReportDialog(true);
     };
 
@@ -259,48 +243,45 @@ export default function PostCard({ id, user, content, created_at, likes, comment
                             <p className="text-sm font-medium">{user?.username}</p>
                             <p className="text-sm text-zinc-500">{timeAgo(created_at)}</p>
                         </div>
-                        <div className="relative">
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-zinc-500 hover:text-zinc-700"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowMenu(!showMenu);
-                                }}
-                            >
-                                <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                            {showMenu && (
-                                <div 
-                                    className="absolute right-0 mt-1 w-48 bg-white border border-zinc-200 rounded-lg shadow-lg z-10"
-                                    onClick={(e) => e.stopPropagation()}
-                                >
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu modal={false}>
+                                <DropdownMenuTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-zinc-500 hover:text-zinc-700"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                        }}
+                                    >
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48 border-zinc-200" sideOffset={5}>
                                     {isAuthor ? (
-                                        <button
+                                        <DropdownMenuItem 
+                                            variant="destructive"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 handleDelete();
                                             }}
-                                            className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 rounded-lg"
                                         >
                                             <Trash2 className="h-4 w-4" />
                                             Delete post
-                                        </button>
+                                        </DropdownMenuItem>
                                     ) : (
-                                        <button
+                                        <DropdownMenuItem 
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 handleReport();
                                             }}
-                                            className="flex items-center gap-2 w-full px-4 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-50 rounded-lg"
                                         >
                                             <Flag className="h-4 w-4" />
                                             Report post
-                                        </button>
+                                        </DropdownMenuItem>
                                     )}
-                                </div>
-                            )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
                     <p>{content}</p>

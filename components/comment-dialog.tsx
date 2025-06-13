@@ -247,8 +247,8 @@ export default function CommentDialog({ post_id }: CommentDialogProps) {
                 
                 <div className="flex-1 overflow-y-auto px-1">
                     <div className="flex flex-row gap-3 p-4">
-                        <Avatar className="w-10 h-10">
-                            <AvatarImage src={post?.users?.profile_picture_url} />
+                        <Avatar className="w-10 h-10 border-zinc-200 border">
+                            <AvatarImage className="object-cover" sizes="300px" src={post?.users?.profile_picture_url} />
                             <AvatarFallback>{post?.users?.username.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div className="flex flex-col w-full">
@@ -346,8 +346,8 @@ export default function CommentDialog({ post_id }: CommentDialogProps) {
                     <div className="flex flex-col gap-4 px-4">
                         {post?.comments.map((comment: any) => (
                             <div key={comment.id} className="flex flex-row gap-3 border-t border-zinc-200 pt-4">
-                                <Avatar className="w-10 h-10">
-                                    <AvatarImage src={comment.users.profile_picture_url} />
+                                <Avatar className="w-10 h-10 border-zinc-200 border">
+                                    <AvatarImage className="object-cover" sizes="300px" src={comment.users.profile_picture_url} />
                                     <AvatarFallback>{comment.users.username.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div className="flex flex-col w-full">

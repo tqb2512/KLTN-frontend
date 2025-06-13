@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PostCard from "@/components/post-card";
 import { getAccessToken, getCurrentUser } from "@/utils/local_user";
 import { createClient } from "@/utils/supabase/client";
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 export default function ProfilePage({ params }: { params: Promise<{ userId: string }> }) {
@@ -29,6 +29,9 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         phone_number: '',
         profile_picture_url: ''
     });
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+    const [isUploadingAvatar, setIsUploadingAvatar] = useState<boolean>(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
         const fetchCurrentUser = async () => {
@@ -148,6 +151,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                 phone_number: user.phone_number || '',
                 profile_picture_url: user.profile_picture_url || ''
             });
+            setAvatarPreview(user.profile_picture_url || null);
         }
     }, [user, currentUser, userId]);
 
@@ -234,6 +238,71 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
         setIsLoading(false);
     };
 
+    const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            alert('Please select an image file');
+            return;
+        }
+
+        // Validate file size (5MB limit)
+        if (file.size > 5 * 1024 * 1024) {
+            alert('File size must be less than 5MB');
+            return;
+        }
+
+        setIsUploadingAvatar(true);
+
+        try {
+            const supabase = createClient(await getAccessToken());
+            
+            // Create unique filename
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${currentUser?.id}/${Date.now()}.${fileExt}`;
+            
+            // Upload to Supabase storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('avatars')
+                .upload(fileName, file);
+
+            if (uploadError) {
+                console.error('Upload error:', uploadError);
+                alert('Failed to upload image');
+                return;
+            }
+
+            // Get public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(fileName);
+
+            const { data: updateData, error: updateError } = await supabase
+                .from("users")
+                .update({ profile_picture_url: publicUrl })
+                .eq("id", currentUser.id)
+                .select()
+
+            // Update form and preview
+            setEditForm(prev => ({ ...prev, profile_picture_url: publicUrl }));
+            setAvatarPreview(publicUrl);
+
+        } catch (error) {
+            console.error('Error uploading avatar:', error);
+            alert('Failed to upload image');
+        } finally {
+            setIsUploadingAvatar(false);
+        }
+    };
+
+    const handleAvatarClick = () => {
+        if (currentUser && currentUser.id === userId) {
+            fileInputRef.current?.click();
+        }
+    };
+
     const handleEditProfile = async () => {
         if (!currentUser) return;
 
@@ -259,6 +328,7 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                 setUser(data[0]);
             }
             setIsEditDialogOpen(false);
+            setAvatarPreview(null);
         }
         setIsLoading(false);
     };
@@ -282,6 +352,33 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                             <DialogTitle>Edit Profile</DialogTitle>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
+                            <div className="grid grid-cols-4 items-center gap-4">
+                                <Label className="text-right">
+                                    Avatar
+                                </Label>
+                                <div className="col-span-3 flex items-center gap-4">
+                                    <Avatar className="w-16 h-16 border-zinc-200 border">
+                                        <AvatarImage className="object-cover" sizes="300px" src={avatarPreview || user?.profile_picture_url} />
+                                        <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploadingAvatar}
+                                    >
+                                        {isUploadingAvatar ? 'Uploading...' : 'Change Avatar'}
+                                    </Button>
+                                    <input
+                                        ref={fileInputRef}
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={handleFileSelect}
+                                        className="hidden"
+                                    />
+                                </div>
+                            </div>
                             <div className="grid grid-cols-4 items-center gap-4">
                                 <Label htmlFor="name" className="text-right">
                                     Name
@@ -383,10 +480,15 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                                 <p className="text-zinc-500">@{user?.username}</p>
                             </div>
                         </div>
-                        <Avatar className="w-20 h-20 shrink-0">
-                            <AvatarImage src={user?.profile_picture_url} />
-                            <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
-                        </Avatar>
+                        <div className="relative">
+                            <Avatar 
+                                className={`w-20 h-20 shrink-0`}
+                                onClick={handleAvatarClick}
+                            >
+                                <AvatarImage className="object-cover" sizes="300px" src={user?.profile_picture_url} />
+                                <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
+                            </Avatar>
+                        </div>
                     </CardTitle>
                     <div className="flex flex-row items-center gap-3">
                         <p className="text-zinc-500">{friends.length} friends</p>
@@ -457,8 +559,8 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                                                 <div key={friendship.id || `friendship-${index}`} className="border-zinc-200 border-t">
                                                     <div className="p-4">
                                                         <div className="flex items-center gap-3">
-                                                            <Avatar className="w-12 h-12">
-                                                                <AvatarImage src={friend?.profile_picture_url} />
+                                                            <Avatar className="w-12 h-12 border-zinc-200 border">
+                                                                <AvatarImage className="object-cover" sizes="300px" src={friend?.profile_picture_url} />
                                                                 <AvatarFallback>{friend?.username?.charAt(0)}</AvatarFallback>
                                                             </Avatar>
                                                             <div className="flex-1">

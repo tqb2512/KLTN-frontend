@@ -233,8 +233,8 @@ export default function Home() {
         <div className="mx-auto w-full max-w-2xl py-12">
             <Card className="border-zinc-200">
                 <CardHeader className="flex flex-row items-center gap-3">
-                    <Avatar className="w-10 h-10">
-                        <AvatarImage src={user?.profile_picture_url} />
+                    <Avatar className="w-10 h-10 border-zinc-200 border">
+                        <AvatarImage className="object-cover" sizes="300px" src={user?.profile_picture_url} />
                         <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
                     </Avatar>
 
@@ -250,8 +250,8 @@ export default function Home() {
                             </DialogHeader>
                             <div className="flex flex-col gap-4">
                                 <div className="flex items-center gap-3">
-                                    <Avatar className="w-10 h-10">
-                                        <AvatarImage src={user?.profile_picture_url} />
+                                    <Avatar className="w-10 h-10 border-zinc-200 border">
+                                        <AvatarImage className="object-cover" sizes="300px" src={user?.profile_picture_url} />
                                         <AvatarFallback>{user?.username?.charAt(0)}</AvatarFallback>
                                     </Avatar>
                                     <span className="font-medium">{user?.username}</span>

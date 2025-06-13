@@ -240,8 +240,8 @@ export default function Messages() {
                             onClick={() => setSelectedConversation(conversation)}
                         >
                             <div className="flex flex-row items-center gap-4">
-                                <Avatar className="w-10 h-10">
-                                    <AvatarImage src={conversation.user_receive.profile_picture_url} />
+                                <Avatar className="w-10 h-10 border-zinc-200 border">
+                                    <AvatarImage className="object-cover" sizes="300px" src={conversation.user_receive.profile_picture_url} />
                                     <AvatarFallback>{conversation.user_receive.username.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div className="flex flex-col">
@@ -263,8 +263,8 @@ export default function Messages() {
                     <>
                         <div className="w-full h-16 flex flex-row items-center justify-between p-4 border-b border-gray-200">
                             <div className="flex flex-row items-center gap-4">
-                                <Avatar className="w-10 h-10">
-                                    <AvatarImage src={selectedConversation.user_receive.profile_picture_url} />
+                                <Avatar className="w-10 h-10 border-zinc-200 border">
+                                    <AvatarImage className="object-cover" sizes="300px" src={selectedConversation.user_receive.profile_picture_url} />
                                     <AvatarFallback>{selectedConversation.user_receive.username.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <h1 className="text-lg font-bold">{selectedConversation.user_receive.username}</h1>

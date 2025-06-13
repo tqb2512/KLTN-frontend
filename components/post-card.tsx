@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./ui/dropdown-menu";
 import Image from "next/image";
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import CommentDialog from "./comment-dialog";
 import { createClient } from "@/utils/supabase/client";
 import { getAccessToken, getCurrentUser } from "@/utils/local_user";
@@ -57,6 +58,7 @@ export const timeAgo = (created_at: string) => {
 }
 
 export default function PostCard({ id, user, content, created_at, likes, comments, attachments, liked: initialLiked, currentUser }: PostCardProps) {
+    const router = useRouter();
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [liked, setLiked] = useState(initialLiked);
     const [likesCount, setLikesCount] = useState(likes);
@@ -232,8 +234,8 @@ export default function PostCard({ id, user, content, created_at, likes, comment
     return (
         <>
             <div className="flex flex-row gap-3 border-t border-zinc-200 pt-4 px-6">
-                <Avatar className="w-10 h-10">
-                    <AvatarImage src={user?.profile_picture_url} />
+                <Avatar className="w-10 h-10 border-zinc-200 border" onClick={() => router.push(`/profile/${user?.id}`)}>
+                    <AvatarImage className="object-cover" sizes="300px" src={user?.profile_picture_url} />
                     <AvatarFallback>{user?.username.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div className="flex flex-col w-full">
@@ -293,6 +295,7 @@ export default function PostCard({ id, user, content, created_at, likes, comment
                                     src={imageAttachments[currentImageIndex].attachment_url}
                                     alt={`Attachment ${currentImageIndex + 1}`}
                                     fill
+                                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                                     className="object-cover"
                                 />
                             </div>

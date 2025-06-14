@@ -549,6 +549,16 @@ export default function CourseBuilder() {
                 }
             }
 
+            fetch("/n8n/webhook/update-course-vectors", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    course_id: course.id
+                })
+            })
+
             alert(isEditing ? "Course updated successfully!" : "Course created successfully!");
             router.push("/courses/creator-dashboard");
         } catch (error) {

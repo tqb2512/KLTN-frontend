@@ -22,6 +22,9 @@ export function EnrollButton({ courseId, isEnrolled, price, className }: EnrollB
     const supabase = createClient();
 
     const handleEnroll = async () => {
+        // Prevent multiple simultaneous enrollments
+        if (isLoading) return;
+        
         try {
             setIsLoading(true);
 
@@ -34,7 +37,7 @@ export function EnrollButton({ courseId, isEnrolled, price, className }: EnrollB
                 return;
             }
 
-            // Check if already enrolled
+            // Check if already enrolled (critical check to prevent duplicates)
             const { data: existingEnrollment } = await supabase
                 .from('enrolled')
                 .select('*')
@@ -103,68 +106,96 @@ export function EnrollButton({ courseId, isEnrolled, price, className }: EnrollB
                 // Calculate 80% credit for the course author
                 const authorCredit = Math.floor(price * 0.8);
 
-                // Get current author balance and add credit
-                const { data: authorProfile, error: authorError } = await supabaseWithToken
-                    .from('users')
-                    .select('balance')
-                    .eq('id', courseData.creator_id)
+                // Check if we already processed this transaction (prevent duplicates)
+                const { data: existingAuthorTransaction } = await supabaseWithToken
+                    .from('transactions')
+                    .select('id')
+                    .eq('user_id', courseData.creator_id)
+                    .like('detail->>type', 'author_earnings')
+                    .like('detail->>course_id', courseId)
+                    .like('detail->>buyer_id', user.id)
                     .single();
 
-                if (authorError) {
-                    console.error('Error fetching author profile:', authorError);
-                    // Continue with enrollment even if author credit fails
+                if (existingAuthorTransaction) {
+                    console.log('Author transaction already exists, skipping duplicate credit');
                 } else {
-                    // Update author balance
-                    const authorNewBalance = (authorProfile.balance || 0) + authorCredit;
-                    const { error: authorBalanceError } = await supabaseWithToken
+                    // Get current author balance and add credit
+                    const { data: authorProfile, error: authorError } = await supabaseWithToken
                         .from('users')
-                        .update({ balance: authorNewBalance })
-                        .eq('id', courseData.creator_id);
+                        .select('balance')
+                        .eq('id', courseData.creator_id)
+                        .single();
 
-                    if (authorBalanceError) {
-                        console.error('Error updating author balance:', authorBalanceError);
+                    if (authorError) {
+                        console.error('Error fetching author profile:', authorError);
                         // Continue with enrollment even if author credit fails
                     } else {
-                        // Record author credit transaction
-                        const { error: authorTransactionError } = await supabaseWithToken
-                            .from('transactions')
-                            .insert({
-                                user_id: courseData.creator_id,
-                                amount: authorCredit,
-                                status: 'completed',
-                                detail: {
-                                    type: 'author_earnings',
-                                    description: `Course sale revenue (80%): ${courseData.creator_id}`,
-                                    course_id: courseId,
-                                    buyer_id: user.id
-                                }
-                            });
+                        // Update author balance
+                        const authorNewBalance = (authorProfile.balance || 0) + authorCredit;
+                        const { error: authorBalanceError } = await supabaseWithToken
+                            .from('users')
+                            .update({ balance: authorNewBalance })
+                            .eq('id', courseData.creator_id);
 
-                        if (authorTransactionError) {
-                            console.error('Error recording author transaction:', authorTransactionError);
-                            // Continue with enrollment even if transaction record fails
+                        if (authorBalanceError) {
+                            console.error('Error updating author balance:', authorBalanceError);
+                            // Continue with enrollment even if author credit fails
+                        } else {
+                            // Record author credit transaction
+                            const { error: authorTransactionError } = await supabaseWithToken
+                                .from('transactions')
+                                .insert({
+                                    user_id: courseData.creator_id,
+                                    amount: authorCredit,
+                                    status: 'completed',
+                                    detail: {
+                                        type: 'author_earnings',
+                                        description: `Course sale revenue (80%) for course ${courseId}`,
+                                        course_id: courseId,
+                                        buyer_id: user.id,
+                                        timestamp: new Date().toISOString()
+                                    }
+                                });
+
+                            if (authorTransactionError) {
+                                console.error('Error recording author transaction:', authorTransactionError);
+                                // Continue with enrollment even if transaction record fails
+                            }
                         }
                     }
                 }
 
-                // Record the buyer's transaction
-                const { error: transactionError } = await supabaseWithToken
+                // Record the buyer's transaction (check for duplicates first)
+                const { data: existingBuyerTransaction } = await supabaseWithToken
                     .from('transactions')
-                    .insert({
-                        user_id: user.id,
-                        amount: price,
-                        status: 'completed',
-                        detail: {
-                            type: 'purchase',
-                            description: getFeatureDescription('course_purchase', `Course ${courseId}`),
-                            course_id: courseId
-                        }
-                    });
+                    .select('id')
+                    .eq('user_id', user.id)
+                    .like('detail->>type', 'purchase')  
+                    .like('detail->>course_id', courseId)
+                    .single();
 
-                if (transactionError) {
-                    console.error('Error recording transaction:', transactionError);
-                    // Note: We don't return here as the payment was already processed
-                    // The transaction record is for history tracking
+                if (!existingBuyerTransaction) {
+                    const { error: transactionError } = await supabaseWithToken
+                        .from('transactions')
+                        .insert({
+                            user_id: user.id,
+                            amount: price,
+                            status: 'completed',
+                            detail: {
+                                type: 'purchase',
+                                description: getFeatureDescription('course_purchase', `Course ${courseId}`),
+                                course_id: courseId,
+                                timestamp: new Date().toISOString()
+                            }
+                        });
+
+                    if (transactionError) {
+                        console.error('Error recording transaction:', transactionError);
+                        // Note: We don't return here as the payment was already processed
+                        // The transaction record is for history tracking
+                    }
+                } else {
+                    console.log('Buyer transaction already exists, skipping duplicate record');
                 }
             }
 
@@ -181,15 +212,6 @@ export function EnrollButton({ courseId, isEnrolled, price, className }: EnrollB
                 console.error('Enrollment error:', enrollError);
                 toast.error('Failed to enroll. Please try again.');
                 return;
-            }
-
-            // Update total_enrolled count
-            const { error: updateError } = await supabase.rpc('increment_enrolled_count', {
-                course_id: courseId
-            });
-
-            if (updateError) {
-                console.error('Error updating enrollment count:', updateError);
             }
 
             if (price > 0) {
@@ -230,11 +252,12 @@ export function EnrollButton({ courseId, isEnrolled, price, className }: EnrollB
             disabled={isLoading}
             className={className}
             size="lg"
+            style={{ pointerEvents: isLoading ? 'none' : 'auto' }}
         >
             {isLoading ? (
                 <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Enrolling...
+                    Processing...
                 </>
             ) : (
                 <>

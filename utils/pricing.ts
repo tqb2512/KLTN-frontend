@@ -16,6 +16,7 @@ export const getFeatureDescription = (feature: string, context?: string): string
         study_guide: 'Study guide generation',
         mind_map: 'Mind map generation',
         course_purchase: 'Course enrollment',
+        author_earnings: 'Course sale revenue',
     };
 
     const baseDescription = descriptions[feature] || 'AI feature usage';

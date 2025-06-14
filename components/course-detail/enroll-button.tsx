@@ -74,6 +74,19 @@ export function EnrollButton({ courseId, isEnrolled, price, className }: EnrollB
                     return;
                 }
 
+                // Get course creator information
+                const { data: courseData, error: courseError } = await supabaseWithToken
+                    .from('courses')
+                    .select('creator_id')
+                    .eq('id', courseId)
+                    .single();
+
+                if (courseError) {
+                    console.error('Error fetching course data:', courseError);
+                    toast.error('Failed to process payment. Please try again.');
+                    return;
+                }
+
                 // Deduct credits from user balance
                 const newBalance = userProfile.balance - price;
                 const { error: balanceError } = await supabaseWithToken
@@ -87,7 +100,54 @@ export function EnrollButton({ courseId, isEnrolled, price, className }: EnrollB
                     return;
                 }
 
-                // Record the transaction
+                // Calculate 80% credit for the course author
+                const authorCredit = Math.floor(price * 0.8);
+
+                // Get current author balance and add credit
+                const { data: authorProfile, error: authorError } = await supabaseWithToken
+                    .from('users')
+                    .select('balance')
+                    .eq('id', courseData.creator_id)
+                    .single();
+
+                if (authorError) {
+                    console.error('Error fetching author profile:', authorError);
+                    // Continue with enrollment even if author credit fails
+                } else {
+                    // Update author balance
+                    const authorNewBalance = (authorProfile.balance || 0) + authorCredit;
+                    const { error: authorBalanceError } = await supabaseWithToken
+                        .from('users')
+                        .update({ balance: authorNewBalance })
+                        .eq('id', courseData.creator_id);
+
+                    if (authorBalanceError) {
+                        console.error('Error updating author balance:', authorBalanceError);
+                        // Continue with enrollment even if author credit fails
+                    } else {
+                        // Record author credit transaction
+                        const { error: authorTransactionError } = await supabaseWithToken
+                            .from('transactions')
+                            .insert({
+                                user_id: courseData.creator_id,
+                                amount: authorCredit,
+                                status: 'completed',
+                                detail: {
+                                    type: 'author_earnings',
+                                    description: `Course sale revenue (80%): ${courseData.creator_id}`,
+                                    course_id: courseId,
+                                    buyer_id: user.id
+                                }
+                            });
+
+                        if (authorTransactionError) {
+                            console.error('Error recording author transaction:', authorTransactionError);
+                            // Continue with enrollment even if transaction record fails
+                        }
+                    }
+                }
+
+                // Record the buyer's transaction
                 const { error: transactionError } = await supabaseWithToken
                     .from('transactions')
                     .insert({

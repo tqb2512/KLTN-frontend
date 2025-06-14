@@ -26,7 +26,7 @@ import {
     ImageIcon
 } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import CoursesNavbar from "@/components/courses-navbar";
 import { MDXEditorMethods } from "@mdxeditor/editor";
 import dynamic from "next/dynamic";
@@ -62,8 +62,13 @@ interface CourseData {
 
 export default function CourseBuilder() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const courseId = searchParams.get('courseId');
+    const isEditing = !!courseId;
+    
     const [activeTab, setActiveTab] = useState("details");
     const [loading, setLoading] = useState(false);
+    const [initialLoading, setInitialLoading] = useState(isEditing);
     const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
     const [courseData, setCourseData] = useState<CourseData>({
         title: "",
@@ -89,6 +94,83 @@ export default function CourseBuilder() {
                 editorRefs.current.delete(key);
             }
         };
+    };
+
+    // Load existing course data when editing
+    useEffect(() => {
+        if (isEditing && courseId) {
+            loadCourseData(courseId);
+        }
+    }, [courseId, isEditing]);
+
+    const loadCourseData = async (courseId: string) => {
+        setInitialLoading(true);
+        try {
+            const supabase = createClient();
+            
+            // Load course data
+            const { data: course, error: courseError } = await supabase
+                .from("courses")
+                .select("*")
+                .eq("id", courseId)
+                .single();
+
+            if (courseError) {
+                console.error("Error loading course:", courseError);
+                alert("Failed to load course data. Please try again.");
+                router.push("/courses/creator-dashboard");
+                return;
+            }
+
+            // Load sections with units
+            const { data: sections, error: sectionsError } = await supabase
+                .from("sections")
+                .select(`
+                    *,
+                    units (*)
+                `)
+                .eq("course_id", courseId)
+                .order("index", { ascending: true });
+
+            if (sectionsError) {
+                console.error("Error loading sections:", sectionsError);
+            }
+
+            // Process sections and units
+            const processedSections: Section[] = (sections || []).map(section => ({
+                id: section.id,
+                title: section.title,
+                description: section.description,
+                index: section.index,
+                units: (section.units || [])
+                    .sort((a: any, b: any) => a.index - b.index)
+                    .map((unit: any) => ({
+                        id: unit.id,
+                        title: unit.title,
+                        description: unit.description,
+                        content: unit.content,
+                        type: unit.type,
+                        index: unit.index
+                    }))
+            }));
+
+            setCourseData({
+                id: course.id,
+                title: course.title,
+                description: course.description,
+                price: course.price,
+                thumbnail_url: course.thumbnail_url || "",
+                topics: course.topics || [],
+                sections: processedSections
+            });
+
+        } catch (error) {
+            console.error("Error in loadCourseData:", error);
+            alert("Failed to load course data. Please try again.");
+            router.push("/courses/creator-dashboard");
+        } finally {
+            setInitialLoading(false);
+        }
     };
 
     const uploadThumbnail = async (file: File) => {
@@ -364,7 +446,7 @@ export default function CourseBuilder() {
         try {
             const user = await getCurrentUser();
             if (!user) {
-                alert("You must be logged in to create a course");
+                alert("You must be logged in to save a course");
                 return;
             }
 
@@ -375,25 +457,59 @@ export default function CourseBuilder() {
                 total + section.units.length, 0
             );
 
-            // Save course
-            const { data: course, error: courseError } = await supabase
-                .from("courses")
-                .insert({
-                    creator_id: user.id,
-                    title: courseData.title,
-                    description: courseData.description,
-                    price: courseData.price,
-                    thumbnail_url: courseData.thumbnail_url,
-                    topics: courseData.topics,
-                    total_lessons: totalLessons
-                })
-                .select()
-                .single();
+            let course;
+            
+            if (isEditing && courseId) {
+                // Update existing course
+                const { data: updatedCourse, error: courseError } = await supabase
+                    .from("courses")
+                    .update({
+                        title: courseData.title,
+                        description: courseData.description,
+                        price: courseData.price,
+                        thumbnail_url: courseData.thumbnail_url,
+                        topics: courseData.topics,
+                        total_lessons: totalLessons
+                    })
+                    .eq("id", courseId)
+                    .select()
+                    .single();
 
-            if (courseError) {
-                console.error("Error saving course:", courseError);
-                alert("Failed to save course. Please try again.");
-                return;
+                if (courseError) {
+                    console.error("Error updating course:", courseError);
+                    alert("Failed to update course. Please try again.");
+                    return;
+                }
+                course = updatedCourse;
+
+                // Delete existing sections and units
+                await supabase.from("units").delete().in(
+                    "section_id", 
+                    courseData.sections.filter(s => s.id).map(s => s.id!)
+                );
+                await supabase.from("sections").delete().eq("course_id", courseId);
+            } else {
+                // Create new course
+                const { data: newCourse, error: courseError } = await supabase
+                    .from("courses")
+                    .insert({
+                        creator_id: user.id,
+                        title: courseData.title,
+                        description: courseData.description,
+                        price: courseData.price,
+                        thumbnail_url: courseData.thumbnail_url,
+                        topics: courseData.topics,
+                        total_lessons: totalLessons
+                    })
+                    .select()
+                    .single();
+
+                if (courseError) {
+                    console.error("Error creating course:", courseError);
+                    alert("Failed to create course. Please try again.");
+                    return;
+                }
+                course = newCourse;
             }
 
             // Save sections and units
@@ -433,7 +549,7 @@ export default function CourseBuilder() {
                 }
             }
 
-            alert("Course created successfully!");
+            alert(isEditing ? "Course updated successfully!" : "Course created successfully!");
             router.push("/courses/creator-dashboard");
         } catch (error) {
             console.error("Error in saveCourse:", error);
@@ -472,16 +588,54 @@ export default function CourseBuilder() {
             {/* Main Content */}
             <div className="max-w-7xl mx-auto p-6">
                 <div className="flex items-center justify-between mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900">Course Builder</h1>
-                    <Button 
-                        onClick={saveCourse} 
-                        disabled={loading || !courseData.title.trim()}
-                    >
-                        <Save className="w-4 h-4 mr-2" />
-                        {loading ? "Saving..." : "Save Course"}
-                    </Button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">
+                            {isEditing ? "Edit Course" : "Course Builder"}
+                        </h1>
+                        {isEditing && (
+                            <p className="text-gray-600 mt-1">
+                                Make changes to your existing course
+                            </p>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Link href="/courses/creator-dashboard">
+                            <Button variant="outline">
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Back to Dashboard
+                            </Button>
+                        </Link>
+                        <Button 
+                            onClick={saveCourse} 
+                            disabled={loading || !courseData.title.trim()}
+                        >
+                            <Save className="w-4 h-4 mr-2" />
+                            {loading ? "Saving..." : (isEditing ? "Update Course" : "Save Course")}
+                        </Button>
+                    </div>
                 </div>
-                <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                
+                {/* Loading state for editing */}
+                {initialLoading ? (
+                    <div className="space-y-6">
+                        <div className="animate-pulse space-y-4">
+                            <div className="h-8 bg-gray-200 rounded w-64"></div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <div className="h-4 bg-gray-200 rounded w-24"></div>
+                                    <div className="h-10 bg-gray-200 rounded"></div>
+                                    <div className="h-4 bg-gray-200 rounded w-32"></div>
+                                    <div className="h-10 bg-gray-200 rounded"></div>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="h-4 bg-gray-200 rounded w-28"></div>
+                                    <div className="h-32 bg-gray-200 rounded"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                     <TabsList className="grid w-full grid-cols-3">
                         <TabsTrigger value="details">Course Details</TabsTrigger>
                         <TabsTrigger value="content">Course Content</TabsTrigger>
@@ -985,6 +1139,7 @@ export default function CourseBuilder() {
                         </Card>
                     </TabsContent>
                 </Tabs>
+                )}
             </div>
         </div>
     );

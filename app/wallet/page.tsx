@@ -383,6 +383,8 @@ export default function WalletPage() {
     const getTransactionIcon = (detail: any) => {
         if (detail?.type === "recharge") {
             return <ArrowUpIcon className="w-4 h-4 text-green-600" />;
+        } else if (detail?.type === "author_earnings") {
+            return <ArrowUpIcon className="w-4 h-4 text-blue-600" />;
         } else if (detail?.type === "ai_usage") {
             return <ArrowDownIcon className="w-4 h-4 text-purple-600" />;
         }
@@ -400,7 +402,7 @@ export default function WalletPage() {
     };
 
     const recentTransactions = transactions.slice(0, 3);
-    const creditTransactions = transactions.filter(t => t.detail?.type === "recharge");
+    const creditTransactions = transactions.filter(t => t.detail?.type === "recharge" || t.detail?.type === "author_earnings");
     const purchaseTransactions = transactions.filter(t => t.detail?.type === "purchase");
     const aiUsageTransactions = transactions.filter(t => t.detail?.type === "ai_usage");
 
@@ -599,7 +601,7 @@ export default function WalletPage() {
                     <Tabs defaultValue="all" className="w-full">
                         <TabsList className="grid w-full grid-cols-4">
                             <TabsTrigger value="all">All</TabsTrigger>
-                            <TabsTrigger value="credits">Credits Added</TabsTrigger>
+                            <TabsTrigger value="credits">Credits Earned</TabsTrigger>
                             <TabsTrigger value="purchases">Purchases</TabsTrigger>
                             <TabsTrigger value="ai-usage">AI Usage</TabsTrigger>
                         </TabsList>
@@ -620,13 +622,15 @@ export default function WalletPage() {
                                                 <div className="flex items-center gap-3">
                                                     {getTransactionIcon(transaction.detail)}
                                                     <div>
-                                                        <div className="font-medium">
-                                                            {transaction.detail?.type === "recharge" 
-                                                                ? "Credits Added" 
-                                                                : transaction.detail?.type === "ai_usage"
-                                                                ? "AI Usage"
-                                                                : "Course Purchase"}
-                                                        </div>
+                                                                                                <div className="font-medium">
+                                            {transaction.detail?.type === "recharge" 
+                                                ? "Credits Added" 
+                                                : transaction.detail?.type === "author_earnings"
+                                                ? "Course Sale Revenue"
+                                                : transaction.detail?.type === "ai_usage"
+                                                ? "AI Usage"
+                                                : "Course Purchase"}
+                                        </div>
                                                         <div className="text-sm text-muted-foreground">
                                                             {formatDate(transaction.created_at)}
                                                         </div>
@@ -634,16 +638,18 @@ export default function WalletPage() {
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <div className="text-right">
-                                                        <div className={`font-medium ${
-                                                            transaction.detail?.type === "recharge" 
-                                                                ? "text-green-600" 
-                                                                : transaction.detail?.type === "ai_usage"
-                                                                ? "text-purple-600"
-                                                                : "text-red-600"
-                                                        }`}>
-                                                            {transaction.detail?.type === "recharge" ? "+" : "-"}
-                                                            {transaction.amount} Credits
-                                                        </div>
+                                                                                                <div className={`font-medium ${
+                                            transaction.detail?.type === "recharge" 
+                                                ? "text-green-600" 
+                                                : transaction.detail?.type === "author_earnings"
+                                                ? "text-blue-600"
+                                                : transaction.detail?.type === "ai_usage"
+                                                ? "text-purple-600"
+                                                : "text-red-600"
+                                        }`}>
+                                            {(transaction.detail?.type === "recharge" || transaction.detail?.type === "author_earnings") ? "+" : "-"}
+                                            {transaction.amount} Credits
+                                        </div>
 
                                                     </div>
                                                     <Badge 
@@ -675,9 +681,18 @@ export default function WalletPage() {
                                                 className="flex items-center justify-between p-4 border border-gray-200 rounded-lg"
                                             >
                                                 <div className="flex items-center gap-3">
-                                                    <ArrowUpIcon className="w-4 h-4 text-green-600" />
+                                                    {transaction.detail?.type === "author_earnings" ? (
+                                                        <ArrowUpIcon className="w-4 h-4 text-blue-600" />
+                                                    ) : (
+                                                        <ArrowUpIcon className="w-4 h-4 text-green-600" />
+                                                    )}
                                                     <div>
-                                                        <div className="font-medium">Credits Added</div>
+                                                        <div className="font-medium">
+                                                            {transaction.detail?.type === "author_earnings" 
+                                                                ? "Course Sale Revenue" 
+                                                                : "Credits Added"
+                                                            }
+                                                        </div>
                                                         <div className="text-sm text-muted-foreground">
                                                             {formatDate(transaction.created_at)}
                                                         </div>
@@ -686,7 +701,11 @@ export default function WalletPage() {
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <div className="text-right">
-                                                        <div className="font-medium text-green-600">
+                                                        <div className={`font-medium ${
+                                                            transaction.detail?.type === "author_earnings" 
+                                                                ? "text-blue-600" 
+                                                                : "text-green-600"
+                                                        }`}>
                                                             +{transaction.amount} Credits
                                                         </div>
                                                     </div>

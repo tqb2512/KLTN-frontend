@@ -128,9 +128,27 @@ export default function ProfilePage({ params }: { params: Promise<{ userId: stri
                     ...post,
                     likes: post.likes?.[0]?.count || 0,
                     comments: post.comments?.[0]?.count || 0,
-                    liked: false, // You'll need to check if current user liked each post
+                    liked: false, // Will be updated below
                     attachments: post.attachments || []
                 }));
+                
+                // Check which posts the current user has liked
+                const currentUserData = await getCurrentUser();
+                if (currentUserData && transformedPosts.length > 0) {
+                    const { data: userLikes, error: likesError } = await supabase
+                        .from("likes")
+                        .select("post_id")
+                        .eq("user_id", currentUserData.id)
+                        .in("post_id", transformedPosts.map(post => post.id));
+
+                    if (!likesError && userLikes) {
+                        const likedPostIds = new Set(userLikes.map(like => like.post_id));
+                        transformedPosts.forEach(post => {
+                            post.liked = likedPostIds.has(post.id);
+                        });
+                    }
+                }
+                
                 setPosts(transformedPosts);
             }
         }

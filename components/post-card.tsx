@@ -63,6 +63,7 @@ export default function PostCard({ id, user, content, created_at, likes, comment
     const [liked, setLiked] = useState(initialLiked);
     const [likesCount, setLikesCount] = useState(likes);
     const [isAuthor, setIsAuthor] = useState(false);
+    const [isLiking, setIsLiking] = useState(false);
     const [showReportDialog, setShowReportDialog] = useState(false);
     const [selectedReason, setSelectedReason] = useState<string>("");
     const [reportNotes, setReportNotes] = useState<string>("");
@@ -127,33 +128,65 @@ export default function PostCard({ id, user, content, created_at, likes, comment
     };
 
     const handleLike = async () => {
-        if (!liked) {
-            const supabase = createClient(await getAccessToken());
-            const { data, error } = await supabase
-                .from("likes")
-                .insert({
-                    post_id: id,
-                });
+        if (isLiking) return; // Prevent multiple clicks
+        
+        // Check if user is logged in
+        if (!currentUser) {
+            alert("You must be logged in to like posts");
+            return;
+        }
+        
+        setIsLiking(true);
+        const originalLiked = liked;
+        const originalCount = likesCount;
+        
+        try {
+            if (!liked) {
+                // Optimistic update
+                setLiked(true);
+                setLikesCount(likesCount + 1);
+                
+                const supabase = createClient(await getAccessToken());
+                const { error } = await supabase
+                    .from("likes")
+                    .insert({
+                        post_id: id,
+                    });
 
-            if (error) {
-                console.error(error);
+                if (error) {
+                    // Revert optimistic update on error
+                    setLiked(originalLiked);
+                    setLikesCount(originalCount);
+                    console.error("Error liking post:", error);
+                    alert("Failed to like post. Please try again.");
+                }
+            } else {
+                // Optimistic update
+                setLiked(false);
+                setLikesCount(likesCount - 1);
+                
+                const supabase = createClient(await getAccessToken());
+                const { error } = await supabase
+                    .from("likes")
+                    .delete()
+                    .eq("post_id", id);
+
+                if (error) {
+                    // Revert optimistic update on error
+                    setLiked(originalLiked);
+                    setLikesCount(originalCount);
+                    console.error("Error unliking post:", error);
+                    alert("Failed to unlike post. Please try again.");
+                }
             }
-
-            setLikesCount(likesCount + 1);
-            setLiked(true);
-        } else {
-            const supabase = createClient(await getAccessToken());
-            const { data, error } = await supabase
-                .from("likes")
-                .delete()
-                .eq("post_id", id);
-
-            if (error) {
-                console.error(error);
-            }
-
-            setLikesCount(likesCount - 1);
-            setLiked(false);
+        } catch (error) {
+            // Revert optimistic update on unexpected error
+            setLiked(originalLiked);
+            setLikesCount(originalCount);
+            console.error("Unexpected error with like functionality:", error);
+            alert("Something went wrong. Please try again.");
+        } finally {
+            setIsLiking(false);
         }
     }
 
@@ -367,7 +400,12 @@ export default function PostCard({ id, user, content, created_at, likes, comment
 
                     <div className="flex flex-row gap-8 pt-2 w-32">
                         <div className="flex flex-row gap-1 items-center w-1/2">
-                            <Heart className={`w-5 h-5 cursor-pointer ${liked ? 'text-red-300' : 'text-zinc-500'}`} onClick={handleLike} />
+                            <Heart 
+                                className={`w-5 h-5 cursor-pointer transition-colors ${
+                                    liked ? 'text-red-500 fill-red-500' : 'text-zinc-500 hover:text-red-400'
+                                } ${isLiking ? 'opacity-50 cursor-not-allowed' : ''}`} 
+                                onClick={handleLike} 
+                            />
                             <p className="text-zinc-500 text-sm">{likesCount > 0 && likesCount}</p>
                         </div>
                         <div className="flex flex-row gap-1 items-center w-1/2">

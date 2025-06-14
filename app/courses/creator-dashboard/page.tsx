@@ -13,9 +13,7 @@ import {
     DollarSign, 
     Edit, 
     Trash2, 
-    Eye, 
-    BarChart3,
-    Settings,
+    Eye,
     TrendingUp
 } from "lucide-react";
 import Link from "next/link";
@@ -60,6 +58,14 @@ export default function CreatorDashboard() {
                 .eq("creator_id", user.id)
                 .order('created_at', { ascending: false });
 
+            // Fetch actual earnings from transactions
+            const { data: earnings, error: earningsError } = await supabase
+                .from("transactions")
+                .select("amount")
+                .eq("user_id", user.id)
+                .eq("status", "completed")
+                .like("detail->>type", "author_earnings");
+
             if (error) {
                 console.error("Error fetching creator courses:", error);
             } else {
@@ -68,16 +74,20 @@ export default function CreatorDashboard() {
                 // Calculate stats
                 const totalCourses = courses?.length || 0;
                 const totalStudents = courses?.reduce((sum, course) => sum + (course.total_enrolled || 0), 0) || 0;
-                const totalRevenue = courses?.reduce((sum, course) => sum + ((course.price || 0) * (course.total_enrolled || 0)), 0) || 0;
+                const actualEarnings = earnings?.reduce((sum, transaction) => sum + (transaction.amount || 0), 0) || 0;
                 const averageRating = courses?.length ? 
                     courses.reduce((sum, course) => sum + (course.rating || 0), 0) / courses.length : 0;
 
                 setStats({
                     totalCourses,
                     totalStudents,
-                    totalRevenue,
+                    totalRevenue: actualEarnings,
                     averageRating: Math.round(averageRating * 10) / 10
                 });
+            }
+
+            if (earningsError) {
+                console.error("Error fetching earnings:", earningsError);
             }
         } catch (error) {
             console.error("Error in fetchCreatorData:", error);
@@ -145,10 +155,12 @@ export default function CreatorDashboard() {
                         View
                     </Button>
                 </Link>
-                <Button variant="outline" size="sm" className="flex-1 border-zinc-200">
-                    <Edit className="w-4 h-4" />
-                    Edit
-                </Button>
+                <Link href={`/courses/creator-dashboard/course-builder?courseId=${course.id}`} className="flex-1">
+                    <Button variant="outline" size="sm" className="w-full border-zinc-200">
+                        <Edit className="w-4 h-4" />
+                        Edit
+                    </Button>
+                </Link>
                 <Button 
                     variant="destructive" 
                     size="sm" 
@@ -214,12 +226,17 @@ export default function CreatorDashboard() {
                         <h1 className="text-3xl font-bold text-gray-900">Creator Dashboard</h1>
                         <p className="text-gray-600 mt-1">Manage your courses and track your success</p>
                     </div>
-                    <Link href="/courses/creator-dashboard/course-builder">
-                        <Button className="border-zinc-200">
-                            <Plus className="w-4 h-4" />
-                            Create New Course
+                    <div className="flex gap-2">
+                        <Button variant="outline" className="border-zinc-200">
+                            Withdraw Credits
                         </Button>
-                    </Link>
+                        <Link href="/courses/creator-dashboard/course-builder">
+                            <Button className="border-zinc-200">
+                                <Plus className="w-4 h-4" />
+                                Create New Course
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
 
                 {/* Stats Overview */}
@@ -237,10 +254,10 @@ export default function CreatorDashboard() {
                         subtitle="Across all courses"
                     />
                     <StatCard 
-                        title="Total Revenue" 
+                        title="Actual Earnings" 
                         value={`${stats.totalRevenue}`} 
                         icon={DollarSign}
-                        subtitle="Credits earned"
+                        subtitle="Credits earned (80% of sales)"
                     />
                     <StatCard 
                         title="Average Rating" 
@@ -255,14 +272,7 @@ export default function CreatorDashboard() {
                     <div className="flex items-center justify-between mb-6">
                         <h2 className="text-2xl font-bold text-gray-900">My Courses</h2>
                         <div className="flex gap-2">
-                            <Button variant="outline" className="border-zinc-200">
-                                <BarChart3 className="w-4 h-4" />
-                                Analytics
-                            </Button>
-                            <Button variant="outline" className="border-zinc-200">
-                                <Settings className="w-4 h-4" />
-                                Manage
-                            </Button>
+                            
                         </div>
                     </div>
 

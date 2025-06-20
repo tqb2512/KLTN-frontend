@@ -25,6 +25,7 @@ import {
     CheckCircle2,
     Clock
 } from 'lucide-react';
+import UnitViewer from '@/components/unit-viewer';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -34,7 +35,7 @@ interface Unit {
     title: string;
     description: string;
     content: string;
-    type: string;
+    type: 'text' | 'video' | 'markdown';
     index: number;
 }
 
@@ -414,7 +415,7 @@ export default function LearnPage({ params }: { params: Promise<{ courseId: stri
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="flex items-center space-x-2">
-                                                                    {unit.type === "lesson" ? (
+                                                                    {unit.type === "text" || unit.type === "markdown" ? (
                                                                         <FileText className="h-4 w-4 flex-shrink-0" />
                                                                     ) : (
                                                                         <Play className="h-4 w-4 flex-shrink-0" />
@@ -447,66 +448,31 @@ export default function LearnPage({ params }: { params: Promise<{ courseId: stri
                 <main className="flex-1 h-[calc(100vh-73px)] overflow-y-auto">
                     {currentUnit ? (
                         <div className="max-w-6xl mx-auto p-8">
-                            {/* Unit Header */}
-                            <div className="mb-8">
-                                <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-2">
-                                    <span>{allUnits[currentUnitIndex]?.sectionTitle}</span>
-                                    <span>•</span>
-                                    <span>Lesson {currentUnitIndex + 1}</span>
-                                </div>
-                                <h1 className="text-3xl font-bold mb-4">{currentUnit.title}</h1>
-                                <p className="text-lg text-muted-foreground mb-6">{currentUnit.description}</p>
-
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center space-x-4">
-                                        <Badge variant="secondary" className="flex items-center space-x-1 text-sm">
-                                            <FileText className="h-4 w-4" />
-                                            <span>{currentUnit.type ? currentUnit.type : "Lesson"}</span>
-                                        </Badge>
-                                    </div>
-
-                                    <Button
-                                        variant={completedUnits.includes(currentUnit.id) ? "default" : "outline"}
-                                        onClick={() => toggleUnitCompletion(currentUnit.id)}
-                                        className="flex items-center space-x-2"
-                                    >
-                                        <CheckCircle2 className="h-4 w-4" />
-                                        <span>{completedUnits.includes(currentUnit.id) ? "Mark Incomplete" : "Mark Complete"}</span>
-                                    </Button>
-                                </div>
+                            {/* Breadcrumb */}
+                            <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-6">
+                                <span>{allUnits[currentUnitIndex]?.sectionTitle}</span>
+                                <span>•</span>
+                                <span>Lesson {currentUnitIndex + 1}</span>
                             </div>
 
-                            {/* Unit Content */}
-                            <Card className="mb-8 border-gray-200">
-                                <CardContent className="p-8">
-                                    {currentUnit.content ? (
-                                        <div
-                                            className="prose prose-lg max-w-none"
-                                            dangerouslySetInnerHTML={{
-                                                __html: currentUnit.content
-                                                    .replace(/\n/g, "<br>")
-                                                    .replace(
-                                                        /```(\w+)?\n([\s\S]*?)```/g,
-                                                        '<pre class="bg-muted p-4 rounded-lg overflow-x-auto"><code>$2</code></pre>',
-                                                    )
-                                                    .replace(/`([^`]+)`/g, '<code class="bg-muted px-1 py-0.5 rounded text-sm">$1</code>')
-                                                    .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold mb-4 mt-8">$1</h1>')
-                                                    .replace(/^## (.*$)/gm, '<h2 class="text-xl font-semibold mb-3 mt-6">$1</h2>')
-                                                    .replace(/^### (.*$)/gm, '<h3 class="text-lg font-medium mb-2 mt-4">$1</h3>')
-                                                    .replace(/^\*\*(.*?)\*\*/gm, "<strong>$1</strong>")
-                                                    .replace(/^\* (.*$)/gm, '<li class="ml-4">$1</li>')
-                                                    .replace(/^(\d+)\. (.*$)/gm, '<li class="ml-4">$2</li>'),
-                                            }}
-                                        />
-                                    ) : (
-                                        <div className="text-center py-12 text-gray-500">
-                                            <BookOpen className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                                            <h3 className="font-semibold mb-2">Content coming soon</h3>
-                                            <p>This lesson content is still being prepared.</p>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+                            {/* Unit Viewer Component */}
+                            <UnitViewer 
+                                unit={currentUnit}
+                                isCompleted={completedUnits.includes(currentUnit.id)}
+                                onComplete={() => markUnitAsCompleted(currentUnit.id)}
+                            />
+
+                            {/* Completion Toggle Button */}
+                            <div className="flex justify-center mb-8 mt-4">
+                                <Button
+                                    variant={completedUnits.includes(currentUnit.id) ? "default" : "outline"}
+                                    onClick={() => toggleUnitCompletion(currentUnit.id)}
+                                    className="flex items-center space-x-2 border-zinc-200"
+                                >
+                                    <CheckCircle2 className="h-4 w-4" />
+                                    <span>{completedUnits.includes(currentUnit.id) ? "Mark Incomplete" : "Mark Complete"}</span>
+                                </Button>
+                            </div>
 
                             {/* Navigation */}
                             <div className="flex justify-between items-center">
@@ -514,7 +480,7 @@ export default function LearnPage({ params }: { params: Promise<{ courseId: stri
                                     variant="outline"
                                     onClick={goToPreviousUnit}
                                     disabled={currentUnitIndex === 0}
-                                    className="flex items-center space-x-2"
+                                    className="flex items-center space-x-2 border-zinc-200"
                                 >
                                     <ChevronLeft className="h-4 w-4" />
                                     <span>Previous</span>

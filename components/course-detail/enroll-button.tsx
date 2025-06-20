@@ -214,6 +214,16 @@ export function EnrollButton({ courseId, isEnrolled, price, className }: EnrollB
                 return;
             }
 
+            await fetch("/n8n/webhook/update-user-preferences", {
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_id: user.id
+                })
+            });
+
             if (price > 0) {
                 toast.success(`Successfully enrolled! ${price} credits deducted from your balance.`);
             } else {

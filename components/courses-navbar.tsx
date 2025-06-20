@@ -161,7 +161,7 @@ export default function CoursesNavbar() {
                             {/* Add custom topic */}
                             <div>
                                 <Label className="text-sm font-medium">Add Custom Topic</Label>
-                                <div className="flex gap-2 mt-2">
+                                <div className="flex gap-2 mt-2 items-center">
                                     <Input
                                         value={newTopic}
                                         onChange={(e) => setNewTopic(e.target.value)}
@@ -169,7 +169,7 @@ export default function CoursesNavbar() {
                                         onKeyPress={(e) => e.key === 'Enter' && addCustomTopic()}
                                         className="flex-1"
                                     />
-                                    <Button onClick={addCustomTopic} variant="outline" size="sm">
+                                    <Button onClick={addCustomTopic} variant="outline" size="sm" className="border-zinc-200">
                                         <Plus className="w-4 h-4" />
                                     </Button>
                                 </div>
@@ -199,6 +199,7 @@ export default function CoursesNavbar() {
 
                         <DialogFooter>
                             <Button 
+                                className="border-zinc-200"
                                 variant="outline" 
                                 onClick={() => setIsPreferencesOpen(false)}
                                 disabled={isLoading}

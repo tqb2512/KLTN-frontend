@@ -7,6 +7,17 @@ import { getCurrentUser } from "@/utils/local_user";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardAction } from "@/components/ui/card";
 import { 
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { 
     Plus, 
     BookOpen, 
     Users, 
@@ -14,7 +25,8 @@ import {
     Edit, 
     Trash2, 
     Eye,
-    TrendingUp
+    TrendingUp,
+    Wallet
 } from "lucide-react";
 import Link from "next/link";
 
@@ -34,6 +46,18 @@ export default function CreatorDashboard() {
         totalRevenue: 0,
         averageRating: 0
     });
+    
+    // Withdraw dialog state
+    const [isWithdrawDialogOpen, setIsWithdrawDialogOpen] = useState(false);
+    const [availableCredits, setAvailableCredits] = useState(0);
+    const [withdrawAmount, setWithdrawAmount] = useState("");
+    const [withdrawLoading, setWithdrawLoading] = useState(false);
+    const [bankName, setBankName] = useState("");
+    const [accountNumber, setAccountNumber] = useState("");
+    const [accountName, setAccountName] = useState("");
+
+    // Get exchange rate from environment variable
+    const creditVndRate = parseFloat(process.env.NEXT_PUBLIC_CREDIT_VND_RATE || "2500");
 
     useEffect(() => {
         fetchCreatorData();
@@ -93,6 +117,129 @@ export default function CreatorDashboard() {
             console.error("Error in fetchCreatorData:", error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchAvailableCredits = async () => {
+        try {
+            const user = await getCurrentUser();
+            if (!user) {
+                console.log("No user found");
+                return;
+            }
+
+            const supabase = createClient();
+            
+            // Fetch user's current credit balance
+            const { data: userData, error } = await supabase
+                .from("users")
+                .select("withdraw_available_balance")
+                .eq("id", user.id)
+                .single();
+
+            if (error) {
+                console.error("Error fetching user withdraw_available_balance:", error);
+            } else {
+                setAvailableCredits(userData?.withdraw_available_balance || 0);
+            }
+        } catch (error) {
+            console.error("Error in fetchAvailableCredits:", error);
+        }
+    };
+
+    const handleWithdrawClick = () => {
+        setIsWithdrawDialogOpen(true);
+        fetchAvailableCredits();
+    };
+
+    const handleWithdraw = async () => {
+        const amount = parseFloat(withdrawAmount);
+        
+        if (!amount || amount <= 0) {
+            alert("Please enter a valid amount");
+            return;
+        }
+
+        if (amount > availableCredits) {
+            alert("Insufficient credits available for withdrawal");
+            return;
+        }
+
+        if (!bankName.trim()) {
+            alert("Please enter bank name");
+            return;
+        }
+
+        if (!accountNumber.trim()) {
+            alert("Please enter account number");
+            return;
+        }
+
+        if (!accountName.trim()) {
+            alert("Please enter account name");
+            return;
+        }
+
+        setWithdrawLoading(true);
+        try {
+            const user = await getCurrentUser();
+            if (!user) {
+                alert("User not found");
+                return;
+            }
+
+            const supabase = createClient();
+            
+            // Create withdrawal transaction
+            const { error: transactionError } = await supabase
+                .from("transactions")
+                .insert({
+                    user_id: user.id,
+                    amount: amount,
+                    status: "pending",
+                    detail: {
+                        type: "withdrawal",
+                        method: "bank_transfer",
+                        bank_name: bankName.trim(),
+                        account_number: accountNumber.trim(),
+                        account_name: accountName.trim(),
+                        currency: "VND",
+                        exchange_rate: creditVndRate,
+                        vnd_amount: amount * creditVndRate
+                    }
+                });
+
+            if (transactionError) {
+                console.error("Error creating withdrawal transaction:", transactionError);
+                alert("Failed to process withdrawal. Please try again.");
+                return;
+            }
+
+            // Update user's withdraw available balance
+            const { error: updateError } = await supabase
+                .from("users")
+                .update({ withdraw_available_balance: availableCredits - amount })
+                .eq("id", user.id);
+
+            if (updateError) {
+                console.error("Error updating user withdraw balance:", updateError);
+                alert("Failed to update credit balance. Please contact support.");
+                return;
+            }
+
+            alert("Withdrawal request submitted successfully! Processing time: 3-5 business days.");
+            setIsWithdrawDialogOpen(false);
+            setWithdrawAmount("");
+            setBankName("");
+            setAccountNumber("");
+            setAccountName("");
+            fetchAvailableCredits();
+            fetchCreatorData(); // Refresh stats
+        } catch (error) {
+            console.error("Error in handleWithdraw:", error);
+            alert("Failed to process withdrawal. Please try again.");
+        } finally {
+            setWithdrawLoading(false);
         }
     };
 
@@ -227,7 +374,8 @@ export default function CreatorDashboard() {
                         <p className="text-gray-600 mt-1">Manage your courses and track your success</p>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" className="border-zinc-200">
+                        <Button variant="outline" className="border-zinc-200" onClick={handleWithdrawClick}>
+                            <Wallet className="w-4 h-4" />
                             Withdraw Credits
                         </Button>
                         <Link href="/courses/creator-dashboard/course-builder">
@@ -299,6 +447,149 @@ export default function CreatorDashboard() {
                     )}
                 </div>
             </div>
+
+            {/* Withdraw Dialog */}
+            <Dialog open={isWithdrawDialogOpen} onOpenChange={setIsWithdrawDialogOpen}>
+                <DialogContent className="sm:max-w-[425px] max-h-[90vh]">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Wallet className="w-5 h-5" />
+                            Withdraw Credits
+                        </DialogTitle>
+                        <DialogDescription>
+                            Convert your earned credits to cash. Withdrawals are processed within 3-5 business days.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <ScrollArea className="max-h-[60vh] pr-4">
+                        <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="available-credits" className="text-sm font-medium">
+                                Available Credits
+                            </Label>
+                            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                <span className="text-lg font-semibold text-gray-900">
+                                    {availableCredits.toLocaleString()} Credits
+                                </span>
+                                <span className="text-sm text-gray-500">
+                                    ≈ {(availableCredits * creditVndRate).toLocaleString()} VND
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="withdraw-amount" className="text-sm font-medium">
+                                Withdrawal Amount (Credits)
+                            </Label>
+                            <Input
+                                id="withdraw-amount"
+                                type="number"
+                                placeholder="Enter amount to withdraw"
+                                value={withdrawAmount}
+                                onChange={(e) => setWithdrawAmount(e.target.value)}
+                                min="1"
+                                max={availableCredits}
+                                className="border-zinc-200"
+                            />
+                            <div className="flex justify-between text-xs text-gray-500">
+                                <span>Minimum: 1 Credit</span>
+                                <span>Maximum: {availableCredits.toLocaleString()} Credits</span>
+                            </div>
+                        </div>
+
+                        {withdrawAmount && parseFloat(withdrawAmount) > 0 && (
+                            <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-blue-700">You will receive:</span>
+                                    <span className="font-semibold text-blue-900">
+                                        {(parseFloat(withdrawAmount) * creditVndRate).toLocaleString()} VND
+                                    </span>
+                                </div>
+                                <p className="text-xs text-blue-600 mt-1">
+                                    Exchange rate: 1 Credit = {creditVndRate.toLocaleString()} VND
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="space-y-3">
+                            <Label className="text-sm font-medium">Bank Information</Label>
+                            
+                            <div className="space-y-2">
+                                <Label htmlFor="bank-name" className="text-sm text-gray-600">
+                                    Bank Name
+                                </Label>
+                                <Input
+                                    id="bank-name"
+                                    type="text"
+                                    placeholder="e.g. Vietcombank, BIDV, Techcombank"
+                                    value={bankName}
+                                    onChange={(e) => setBankName(e.target.value)}
+                                    className="border-zinc-200"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="account-number" className="text-sm text-gray-600">
+                                    Account Number
+                                </Label>
+                                <Input
+                                    id="account-number"
+                                    type="text"
+                                    placeholder="Enter your account number"
+                                    value={accountNumber}
+                                    onChange={(e) => setAccountNumber(e.target.value)}
+                                    className="border-zinc-200"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="account-name" className="text-sm text-gray-600">
+                                    Account Name
+                                </Label>
+                                <Input
+                                    id="account-name"
+                                    type="text"
+                                    placeholder="Account holder name (as registered with bank)"
+                                    value={accountName}
+                                    onChange={(e) => setAccountName(e.target.value)}
+                                    className="border-zinc-200"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="text-xs text-gray-500 space-y-1">
+                            <p>• Processing time: 3-5 business days</p>
+                            <p>• Funds will be transferred to the provided bank account</p>
+                            <p>• Minimum withdrawal: 1 Credit ({creditVndRate.toLocaleString()} VND)</p>
+                            <p>• Please ensure bank details are accurate to avoid delays</p>
+                        </div>
+                        </div>
+                    </ScrollArea>
+
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setIsWithdrawDialogOpen(false);
+                                setWithdrawAmount("");
+                                setBankName("");
+                                setAccountNumber("");
+                                setAccountName("");
+                            }}
+                            disabled={withdrawLoading}
+                            className="border-zinc-200"
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            onClick={handleWithdraw}
+                            disabled={withdrawLoading || !withdrawAmount || parseFloat(withdrawAmount) <= 0 || !bankName.trim() || !accountNumber.trim() || !accountName.trim()}
+                        >
+                            {withdrawLoading ? "Processing..." : "Withdraw"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

@@ -205,7 +205,10 @@ export function EnrollButton({ courseId, isEnrolled, price, className }: EnrollB
                 .insert({
                     user_id: user.id,
                     course_id: courseId,
-                    status: 'active'
+                    status: {
+                        type: 'active',
+                        timestamp: new Date().toISOString()
+                    }
                 });
 
             if (enrollError) {

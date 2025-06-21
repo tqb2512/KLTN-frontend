@@ -1,6 +1,7 @@
-import { Background, Controls, ReactFlow } from "@xyflow/react";
+import { Background, Controls, ReactFlow, useNodesState, useEdgesState } from "@xyflow/react";
 import '@xyflow/react/dist/style.css';
 import MindMapNode from "./node";
+import CustomEdge from "./edge";
 import { Dialog, DialogTrigger, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
@@ -16,11 +17,15 @@ const nodeTypes = {
     mindMapNode: MindMapNode
 }
 
+const edgeTypes = {
+    custom: CustomEdge,
+};
+
 export default function MindMapDialog({ id, title, createdAt }: MindMapDialogProps) {
 
     const [open, setOpen] = useState(false);
-    const [nodes, setNodes] = useState<any[]>([]);
-    const [edges, setEdges] = useState<any[]>([]);
+    const [nodes, setNodes, onNodesChange] = useNodesState([]);
+    const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
     useEffect(() => {
         const fetchMindMap = async () => {
@@ -30,14 +35,28 @@ export default function MindMapDialog({ id, title, createdAt }: MindMapDialogPro
                 console.error(error);
             }
             const content = JSON.parse(data?.content);
-            setNodes(content.nodes);
-            setEdges(content.edges);
+            
+            // Make sure all nodes are draggable and use the custom type
+            const processedNodes = content.nodes.map((node: any) => ({
+                ...node,
+                draggable: true,
+                type: node.type || 'mindMapNode'
+            }));
+            
+            // Force all edges to use bezier curves
+            const processedEdges = content.edges.map((edge: any) => ({
+                ...edge,
+                type: 'custom'
+            }));
+            
+            setNodes(processedNodes);
+            setEdges(processedEdges);
         }
 
         if (open) {
             fetchMindMap();
         }
-    }, [id, open]);
+    }, [id, open, setNodes, setEdges]);
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -56,7 +75,16 @@ export default function MindMapDialog({ id, title, createdAt }: MindMapDialogPro
                     <ReactFlow
                         nodes={nodes}
                         edges={edges}
+                        onNodesChange={onNodesChange}
+                        onEdgesChange={onEdgesChange}
                         nodeTypes={nodeTypes}
+                        edgeTypes={edgeTypes}
+                        nodesDraggable={true}
+                        nodesConnectable={false}
+                        elementsSelectable={true}
+                        defaultEdgeOptions={{
+                            type: 'custom',
+                        }}
                         proOptions={{
                             hideAttribution: true,
                         }}

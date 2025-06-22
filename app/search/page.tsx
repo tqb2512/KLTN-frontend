@@ -88,7 +88,7 @@ export default function SearchPage() {
             } finally {
                 setIsLoading(false);
             }
-        }, 500),
+        }, 1000),
         [currentUser]
     );
 
@@ -108,7 +108,11 @@ export default function SearchPage() {
             console.error("Error fetching users:", error);
             setUserResults([]);
         } else {
-            setUserResults(data || []);
+            // Sort users to preserve the order from the API
+            const sortedUsers = userIds.map(id => 
+                (data || []).find(user => user.id === id)
+            ).filter(Boolean) as User[];
+            setUserResults(sortedUsers);
         }
     };
 
@@ -128,7 +132,11 @@ export default function SearchPage() {
             console.error("Error fetching courses:", error);
             setCourseResults([]);
         } else {
-            setCourseResults(data || []);
+            // Sort courses to preserve the order from the API
+            const sortedCourses = courseIds.map(id => 
+                (data || []).find(course => course.id === id)
+            ).filter(Boolean) as Course[];
+            setCourseResults(sortedCourses);
         }
     };
 
@@ -148,8 +156,7 @@ export default function SearchPage() {
                 comments:comments(count),
                 attachments:attachments(*)
             `)
-            .in("id", postIds)
-            .order("created_at", { ascending: false });
+            .in("id", postIds);
 
         if (error) {
             console.error("Error fetching posts:", error);
@@ -164,23 +171,28 @@ export default function SearchPage() {
                 attachments: post.attachments || []
             }));
 
+            // Sort posts to preserve the order from the API
+            const sortedPosts = postIds.map(id => 
+                transformedPosts.find(post => post.id === id)
+            ).filter(Boolean);
+
             // Check which posts the current user has liked
-            if (currentUser && transformedPosts.length > 0) {
+            if (currentUser && sortedPosts.length > 0) {
                 const { data: userLikes, error: likesError } = await supabase
                     .from("likes")
                     .select("post_id")
                     .eq("user_id", currentUser.id)
-                    .in("post_id", transformedPosts.map(post => post.id));
+                    .in("post_id", sortedPosts.map(post => post.id));
 
                 if (!likesError && userLikes) {
                     const likedPostIds = new Set(userLikes.map(like => like.post_id));
-                    transformedPosts.forEach(post => {
+                    sortedPosts.forEach(post => {
                         post.liked = likedPostIds.has(post.id);
                     });
                 }
             }
 
-            setPostResults(transformedPosts);
+            setPostResults(sortedPosts);
         }
     };
 
@@ -246,7 +258,7 @@ export default function SearchPage() {
 
                                     <TabsContent value="users" className="mt-2 p-0 data-[state=active]:p-0">
                                         <div className="grid gap-0">
-                                            {userResults.slice().reverse().map((user) => (    
+                                            {userResults.map((user) => (    
                                                 <div key={user.id} className="border-zinc-200 border-t">
                                                     <Link href={`/profile/${user.id}`}>
                                                         <div className="p-4 hover:bg-zinc-50 transition-colors cursor-pointer">
@@ -272,7 +284,7 @@ export default function SearchPage() {
                                     <TabsContent value="courses" className="mt-2 p-0 data-[state=active]:p-0">
                                         <hr className="border-zinc-200" />
                                         <div className="space-y-4 p-4 grid grid-cols-2 gap-4">
-                                            {courseResults.slice().reverse().map((course) => (
+                                            {courseResults.map((course) => (
                                                 <CourseCard key={course.id} {...course} />
                                             ))}
                                         </div>  
@@ -280,7 +292,7 @@ export default function SearchPage() {
 
                                     <TabsContent value="posts" className="mt-2 p-0 data-[state=active]:p-0">
                                         <div className="space-y-4">
-                                            {postResults.slice().reverse().map((post) => (
+                                            {postResults.map((post) => (
                                                 <PostCard key={post.id} {...post} currentUser={currentUser} />
                                             ))}
                                         </div>

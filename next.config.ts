@@ -6,13 +6,6 @@ const nextConfig: NextConfig = {
       {
         source: "/n8n/:path*",
         destination: "https://n8n.tqbaoo.host/:path*",
-        has: [
-          {
-            type: 'header',
-            key: 'connection',
-            value: 'keep-alive',
-          },
-        ],
       }
     ];
   },

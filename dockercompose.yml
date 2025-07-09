@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  eduverse:
+    image: eduverse
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    networks:
+      - dokploy-network
+    environment:
+      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+      - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}    
+      - NEXT_PUBLIC_CREDIT_VND_RATE=${NEXT_PUBLIC_CREDIT_VND_RATE}
+      - PAYOS_CLIENT_ID=${PAYOS_CLIENT_ID}
+      - PAYOS_API_KEY=${PAYOS_API_KEY}
+      - PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY}
+      - PERSPECTIVE_API_KEY=${PERSPECTIVE_API_KEY}
+
+networks:
+  dokploy-network:
+    external: true

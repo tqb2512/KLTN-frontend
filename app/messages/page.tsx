@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { getAccessToken, getCurrentUser } from "@/utils/local_user";
 import { createClient } from "@/utils/supabase/client";
 import { PlusIcon, SendHorizonal } from "lucide-react";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 interface Conversation {
@@ -27,7 +27,7 @@ interface Conversation {
     }[]
 }
 
-export default function Messages() {
+function MessagesContent() {
     const searchParams = useSearchParams();
     const targetUserId = searchParams.get('userId');
     const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -325,5 +325,13 @@ export default function Messages() {
                 )}
             </main>
         </div>
+    );
+}
+
+export default function Messages() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+            <MessagesContent />
+        </Suspense>
     );
 }

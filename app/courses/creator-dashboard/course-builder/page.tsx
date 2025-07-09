@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { getCurrentUser } from "@/utils/local_user";
 import { Button } from "@/components/ui/button";
@@ -60,7 +60,7 @@ interface CourseData {
     sections: Section[];
 }
 
-export default function CourseBuilder() {
+function CourseBuilderContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
     const courseId = searchParams.get('courseId');
@@ -1148,5 +1148,13 @@ export default function CourseBuilder() {
                 )}
             </div>
         </div>
+    );
+}
+
+export default function CourseBuilder() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center h-screen">Loading...</div>}>
+            <CourseBuilderContent />
+        </Suspense>
     );
 }

@@ -11,6 +11,7 @@ services:
     networks:
       - dokploy-network
     environment:
+      - PORT=${PORT}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL}    

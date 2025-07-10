@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Star, Users, Clock, Play, BookOpen } from 'lucide-react';
 import { EnrollButton } from '@/components/course-detail/enroll-button';
 import { ExpandableDescription } from '@/components/course-detail/expandable-description';
+import ReviewSection from '@/components/course-detail/review-section';
 
 async function CourseDetailContent({ courseId }: { courseId: string }) {
     const supabase = await createClient();
@@ -168,12 +169,16 @@ async function CourseDetailContent({ courseId }: { courseId: string }) {
                                 ))}
                             </div>
                         ) : (
-                            <Card>
+                            <Card className='border-gray-200'>
                                 <CardContent className="py-8">
                                     <p className="text-center text-gray-500">Course content will be available soon.</p>
                                 </CardContent>
                             </Card>
                         )}
+                    </div>
+                    <div className='mt-8'>
+                        {/* Reviews Section */}
+                        <ReviewSection courseId={courseId} isEnrolled={isEnrolled} />
                     </div>
                 </div>
 

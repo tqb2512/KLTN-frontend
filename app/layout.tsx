@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import AppSidebar from "@/components/app-sidebar";
+import LayoutWrapper from "@/components/layout-wrapper";
 import { ReactFlowProvider } from "@xyflow/react";
 import { Toaster } from "sonner";
 
@@ -29,12 +29,9 @@ export default function RootLayout({
         <html lang="en">
             <ReactFlowProvider>
                 <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-                    <main className="flex flex-row">
-                        <AppSidebar />
-                        <div className="flex-1">
-                            {children}
-                        </div>
-                    </main>
+                    <LayoutWrapper>
+                        {children}
+                    </LayoutWrapper>
                     <Toaster richColors position="top-right" />
                 </body>
             </ReactFlowProvider>
